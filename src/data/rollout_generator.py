@@ -1,6 +1,7 @@
 import random
 
 import numpy as np
+import cv2
 
 
 class RolloutGenerator:
@@ -20,40 +21,39 @@ class RolloutGenerator:
         bs,
         max_seq_len,
         buffer_size,
-        frame_size=None,
+        frame_size,
     ):
-        ''' Yields batches of episodes - (ep_id, actions, observations, frames?) '''
+        ''' Yields batches of episodes - (ep_id, actions, frames) '''
 
         self.buffer = []
         self.episodes_len = []
 
         def get_batch():
             batch = random.sample(self.buffer, bs)
-            ep_id, actions, obs, frames = [np.array(t) for t in zip(*batch)]
-            return dict(ep_id=ep_id, actions=actions, obs=obs, frames=frames)
+            ep_id, actions, frames = [np.array(t) for t in zip(*batch)]
+            return ep_id, actions, frames
 
         for ep_id in range(buffer_size):
             obs = env.reset()
             done = False
 
             actions = np.zeros((max_seq_len, *env.action_space.shape))
-            observations = np.zeros((max_seq_len, *obs.shape))
             self.episodes_len.append(0)
 
             frame = env.render('rgb_array')
-            # Reverse to preserve in (W, H) form
-            frame_size = frame.shape[:2][::-1] \
-                if frame_size is None else frame_size
 
             # Assume RGB (3 channel) rendering
-            frames = np.zeros((max_seq_len, *frame_size[::-1], 3))
+            frames = np.zeros((max_seq_len, 3, *frame_size[::-1]))
 
             for i in range(max_seq_len):
                 action = agent(obs)
+
                 actions[i] = action
-                observations[i] = obs
+
                 frame = env.render('rgb_array')
-                frames[i] = cv2.resize(frame, frame_size)
+                frame = cv2.resize(frame, frame_size)
+                frame = np.transpose(frame, (2, 0, 1))
+                frames[i] = frame
 
                 obs, _reward, done, _info = env.step(action)
                 self.episodes_len[-1] += 1
@@ -63,7 +63,7 @@ class RolloutGenerator:
                 if done:
                     break
 
-            self.buffer.append([ep_id, actions, observations, frames])
+            self.buffer.append([ep_id, actions, frames])
 
         while True:
             yield get_batch()
