@@ -48,6 +48,10 @@ class BaseModule(nn.Module):
     def can_be_preloaded(self):
         return os.path.isfile(self.path)
 
+    @property
+    def device(self):
+        return next(self.parameters()).device
+
 
 def dense(i, o, a=None):
     l = nn.Linear(i, o)

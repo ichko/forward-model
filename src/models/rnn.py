@@ -43,6 +43,7 @@ class RNN(tu.BaseModule):
             ),
             tu.conv_block(i=64, o=64, ks=5, s=1, p=2, d=1),
             tu.conv_block(i=64, o=64, ks=7, s=1, p=2, d=1),
+            tu.conv_block(i=64, o=64, ks=7, s=1, p=2, d=2),
             tu.conv_block(i=64, o=8, ks=9, s=1, p=2, d=2),
         )
 
@@ -76,8 +77,10 @@ class RNN(tu.BaseModule):
             tu.dense(i=rnn_hidden_size, o=512),
             tu.lam(lambda x: x.reshape(-1, 8, 8, 8)),
             tu.deconv_block(i=8, o=32, ks=5, s=1, p=1, d=1),
-            tu.deconv_block(i=32, o=32, ks=5, s=1, p=1, d=2),
             tu.deconv_block(i=32, o=32, ks=5, s=2, p=2, d=2),
+            tu.deconv_block(i=32, o=32, ks=6, s=2, p=2, d=2),
+            tu.deconv_block(i=32, o=32, ks=7, s=1, p=2, d=2),
+            tu.deconv_block(i=32, o=32, ks=7, s=1, p=2, d=2),
             tu.deconv_block(i=32, o=3, ks=4, s=1, p=3, d=1, a=None),
         )
 
@@ -88,6 +91,11 @@ class RNN(tu.BaseModule):
             actions             -> [bs, sequence, action_id]
         """
         precondition_frames, actions = x
+        precondition_frames = torch.FloatTensor(precondition_frames) \
+            .to(self.device)
+
+        actions = torch.LongTensor(actions).to(self.device)
+
         precondition_frames = precondition_frames.reshape(
             -1,
             self.precondition_channels,
@@ -115,10 +123,6 @@ class RNN(tu.BaseModule):
 
         return frames
 
-    def loss(self, x, y):
-        y_pred = self(x)
-        return F.mse_loss(y_pred, y)
-
     def configure_optim(self, lr):
         self.optim = torch.optim.Adam(self.parameters(), lr=lr)
 
@@ -126,16 +130,19 @@ class RNN(tu.BaseModule):
         x, y = batch
 
         self.optim.zero_grad()
-        loss = self.loss(x, y)
+        y_pred = self(x)
+        y = torch.FloatTensor(y).to(self.device)
+        loss = F.mse_loss(y_pred, y)
+
         loss.backward()
         self.optim.step()
 
-        return {'loss': loss}
+        return {'loss': loss, 'y': y, 'y_pred': y_pred}
 
 
 def sanity_check():
     num_precondition_frames = 1
-    frame_size = (32, 32)
+    frame_size = (64, 64)
     num_actions = 3
     max_seq_len = 15
     bs = 10
@@ -147,7 +154,7 @@ def sanity_check():
         num_actions=num_actions,
         action_embedding_size=32,
         rnn_hidden_size=32,
-    )
+    ).to('cuda')
 
     print(f'RNN NUM PARAMS {rnn.count_parameters():08,}')
     print(
@@ -161,21 +168,16 @@ def sanity_check():
         *frame_size,
     )
     actions = torch.randint(0, num_actions, size=(bs, max_seq_len))
-    out_frames = rnn([precondition_frames, actions])
+    out_frames = rnn([precondition_frames, actions]).detach().cpu()
 
     print(f'OUT FRAMES SHAPE {out_frames.shape}')
-
-    loss = rnn.loss([precondition_frames, actions], out_frames)
-
-    print(f'LOSS {loss.item()}')
-    assert loss == 0, 'loss should be 0'
 
     rnn.configure_optim(lr=0.001)
     info = rnn.optim_step([[precondition_frames, actions], out_frames])
     info_loss = info['loss']
 
     print(f'OPTIM STEP LOSS {info_loss.item()}')
-    assert info['loss'] == 0, 'loss should be 0'
+    assert info['loss'] < 0.0000001, 'loss should be 0'
 
 
 if __name__ == '__main__':
