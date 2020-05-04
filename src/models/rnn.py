@@ -35,16 +35,14 @@ class RNN(tu.BaseModule):
         self.compute_precondition = nn.Sequential(
             tu.conv_block(
                 i=self.precondition_channels,
-                o=64,
+                o=16,
                 ks=5,
                 s=2,
                 p=2,
                 d=1,
             ),
-            tu.conv_block(i=64, o=64, ks=5, s=1, p=2, d=1),
-            tu.conv_block(i=64, o=64, ks=7, s=1, p=2, d=1),
-            tu.conv_block(i=64, o=64, ks=7, s=1, p=2, d=2),
-            tu.conv_block(i=64, o=8, ks=9, s=1, p=2, d=2),
+            tu.conv_block(i=16, o=32, ks=5, s=2, p=2, d=1),
+            tu.conv_block(i=32, o=4, ks=7, s=1, p=2, d=2),
         )
 
         self.precondition_out = tu.compute_conv_output(
@@ -74,14 +72,12 @@ class RNN(tu.BaseModule):
         )
 
         self.deconvolve_to_frame = nn.Sequential(
-            tu.dense(i=rnn_hidden_size, o=512),
-            tu.lam(lambda x: x.reshape(-1, 8, 8, 8)),
-            tu.deconv_block(i=8, o=32, ks=5, s=1, p=1, d=1),
-            tu.deconv_block(i=32, o=32, ks=5, s=2, p=2, d=2),
-            tu.deconv_block(i=32, o=32, ks=6, s=2, p=2, d=2),
+            tu.dense(i=rnn_hidden_size, o=1024),
+            tu.lam(lambda x: x.reshape(-1, 4, 16, 16)),
+            tu.deconv_block(i=4, o=32, ks=5, s=1, p=2, d=2),
             tu.deconv_block(i=32, o=32, ks=7, s=1, p=2, d=2),
-            tu.deconv_block(i=32, o=32, ks=7, s=1, p=2, d=2),
-            tu.deconv_block(i=32, o=3, ks=4, s=1, p=3, d=1, a=None),
+            tu.deconv_block(i=32, o=32, ks=7, s=2, p=2, d=2),
+            tu.deconv_block(i=32, o=3, ks=4, s=1, p=1, d=1, a=nn.Sigmoid()),
         )
 
     def forward(self, x):
@@ -92,7 +88,7 @@ class RNN(tu.BaseModule):
         """
         precondition_frames, actions = x
         precondition_frames = torch.FloatTensor(precondition_frames) \
-            .to(self.device)
+            .to(self.device) / 255
 
         actions = torch.LongTensor(actions).to(self.device)
 
@@ -131,7 +127,7 @@ class RNN(tu.BaseModule):
 
         self.optim.zero_grad()
         y_pred = self(x)
-        y = torch.FloatTensor(y).to(self.device)
+        y = torch.FloatTensor(y).to(self.device) / 255.0
         loss = F.mse_loss(y_pred, y)
 
         loss.backward()
@@ -152,7 +148,7 @@ def sanity_check():
         frame_size=frame_size,
         num_rnn_layers=3,
         num_actions=num_actions,
-        action_embedding_size=32,
+        action_embedding_size=16,
         rnn_hidden_size=32,
     ).to('cuda')
 
@@ -177,7 +173,6 @@ def sanity_check():
     info_loss = info['loss']
 
     print(f'OPTIM STEP LOSS {info_loss.item()}')
-    assert info['loss'] < 0.0000001, 'loss should be 0'
 
 
 if __name__ == '__main__':

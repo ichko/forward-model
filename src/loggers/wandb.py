@@ -23,8 +23,8 @@ class WAndBVideoLogger:
 
         if self.it % self.info_log_interval == 0:
             num_log_images = 2
-            y = info['y'][:num_log_images].detach().cpu()
-            y_pred = info['y_pred'][:num_log_images].detach().cpu()
+            y = info['y'][:num_log_images].detach().cpu() * 255
+            y_pred = info['y_pred'][:num_log_images].detach().cpu() * 255
             diff = abs(y - y_pred)
 
             wandb.log({
