@@ -4,7 +4,6 @@ import wandb
 class WAndBVideoLogger:
     def __init__(self, info_log_interval, model, hparams):
         self.info_log_interval = info_log_interval
-        self.it = 0
 
         wandb.init(dir='.reports', project='forward_models_2', config=hparams)
         wandb.watch(model)
@@ -15,20 +14,21 @@ class WAndBVideoLogger:
         #     wandb.save(f'./models/{f}') for f in os.listdir('./models')
         #     if not f.startswith('__')
         # ]
+        self.model = model
 
-    def log_info(self, info):
-        self.it += 1
+    def log(self, dict):
+        wandb.log(dict)
 
-        wandb.log({'loss': info['loss']})
+    def log_info(self, info, prefix='train'):
+        wandb.log({'lr_scheduler': self.model.scheduler.get_lr()[0]})
 
-        if self.it % self.info_log_interval == 0:
-            num_log_images = 2
-            y = info['y'][:num_log_images].detach().cpu() * 255
-            y_pred = info['y_pred'][:num_log_images].detach().cpu() * 255
-            diff = abs(y - y_pred)
+        num_log_images = 2
+        y = info['y'][:num_log_images].detach().cpu() * 255
+        y_pred = info['y_pred'][:num_log_images].detach().cpu() * 255
+        diff = abs(y - y_pred)
 
-            wandb.log({
-                'y': [wandb.Video(i) for i in y],
-                'y_pred': [wandb.Video(i) for i in y_pred],
-                'diff': [wandb.Video(i) for i in diff]
-            })
+        wandb.log({
+            f'{prefix}_y': [wandb.Video(i) for i in y],
+            f'{prefix}_y_pred': [wandb.Video(i) for i in y_pred],
+            f'{prefix}_diff': [wandb.Video(i) for i in diff]
+        })
