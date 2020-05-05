@@ -41,7 +41,9 @@ class RNN(tu.BaseModule):
                 p=2,
                 d=1,
             ),
+            nn.Dropout2d(p=0.4),
             tu.conv_block(i=16, o=32, ks=5, s=2, p=2, d=1),
+            nn.Dropout2d(p=0.2),
             tu.conv_block(i=32, o=4, ks=7, s=1, p=2, d=2),
         )
 
@@ -73,10 +75,14 @@ class RNN(tu.BaseModule):
 
         self.deconvolve_to_frame = nn.Sequential(
             tu.dense(i=rnn_hidden_size, o=1024),
-            tu.lam(lambda x: x.reshape(-1, 4, 16, 16)),
+            nn.Dropout(p=0.4),
+            tu.reshape(-1, 4, 16, 16),
             tu.deconv_block(i=4, o=32, ks=5, s=1, p=2, d=2),
+            nn.Dropout2d(p=0.3),
             tu.deconv_block(i=32, o=32, ks=7, s=1, p=2, d=2),
+            nn.Dropout2d(p=0.2),
             tu.deconv_block(i=32, o=32, ks=7, s=2, p=2, d=2),
+            nn.Dropout2d(p=0.1),
             tu.deconv_block(i=32, o=3, ks=4, s=1, p=1, d=1, a=nn.Sigmoid()),
         )
 
@@ -120,7 +126,15 @@ class RNN(tu.BaseModule):
         return frames
 
     def configure_optim(self, lr):
-        self.optim = torch.optim.Adam(self.parameters(), lr=lr)
+        self.optim = torch.optim.Adam(self.parameters(), lr=1)
+
+        def lr_lambda(it):
+            return lr / (it // 1000 + 1)
+
+        self.scheduler = torch.optim.lr_scheduler.LambdaLR(
+            self.optim,
+            lr_lambda=lr_lambda,
+        )
 
     def optim_step(self, batch):
         x, y = batch
@@ -130,10 +144,12 @@ class RNN(tu.BaseModule):
         y = torch.FloatTensor(y).to(self.device) / 255.0
         loss = F.mse_loss(y_pred, y)
 
-        loss.backward()
-        self.optim.step()
+        if loss.requires_grad:
+            loss.backward()
+            self.optim.step()
+            self.scheduler.step()
 
-        return {'loss': loss, 'y': y, 'y_pred': y_pred}
+        return loss, {'y': y, 'y_pred': y_pred}
 
 
 def sanity_check():
@@ -169,10 +185,9 @@ def sanity_check():
     print(f'OUT FRAMES SHAPE {out_frames.shape}')
 
     rnn.configure_optim(lr=0.001)
-    info = rnn.optim_step([[precondition_frames, actions], out_frames])
-    info_loss = info['loss']
+    loss, _info = rnn.optim_step([[precondition_frames, actions], out_frames])
 
-    print(f'OPTIM STEP LOSS {info_loss.item()}')
+    print(f'OPTIM STEP LOSS {loss.item()}')
 
 
 if __name__ == '__main__':

@@ -1,4 +1,4 @@
-from src.models.rnn import sanity_check as rnn_sanity_check, RNN
+from src.models.rnn_deconvolve import sanity_check as rnn_sanity_check, RNN
 from src.data.rollout_generator import RolloutGenerator
 from src.utils.trainer import fit_generator
 from src.loggers.wandb import WAndBVideoLogger
@@ -17,9 +17,9 @@ import sneks
 hparams = argparse.Namespace(
     env_name='CubeCrash-v0',
     precondition_size=1,
-    dataset_size=50000,
+    num_rollouts=10_000,
     frame_size=(64, 64),
-    its=5000,
+    its=50_000,
     bs=32,
     log_interval=40,
     lr=0.001,
@@ -41,17 +41,20 @@ def get_model(env):
         action_embedding_size=32,
         rnn_hidden_size=32,
     )
+    model.make_persisted('.models/rnn.h5')
 
     return model
 
 
-def get_data_generator(env):
+def get_data_generator(env, agent=None):
+    agent = (lambda _: env.action_space.sample()) if agent is None else agent
+
     gen = RolloutGenerator(
         env=env,
-        agent=lambda _: env.action_space.sample(),
+        agent=agent,
         bs=hparams.bs,
         max_seq_len=hparams.max_seq_len,
-        buffer_size=50_000,
+        buffer_size=hparams.num_rollouts,
         frame_size=hparams.frame_size,
     )
 
@@ -67,12 +70,12 @@ def main():
     rnn_sanity_check()
 
     env = get_env()
-    data_generator = get_data_generator(env)
+    train_data_generator = get_data_generator(env)
+    val_data_generator = get_data_generator(env)
 
     model = get_model(env)
     model.configure_optim(lr=hparams.lr)
     model = model.to(hparams.device)
-    model.make_persisted('.models/rnn.h5')
 
     logger = WAndBVideoLogger(
         info_log_interval=hparams.log_interval,
@@ -82,10 +85,12 @@ def main():
 
     fit_generator(
         model,
-        data_generator,
+        train_data_generator,
+        val_data_generator,
         its=hparams.its,
         logger=logger,
         persist_frequency=hparams.log_interval,
+        log_info_interval=hparams.log_interval,
     )
 
 
