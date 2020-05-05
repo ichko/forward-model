@@ -42,6 +42,9 @@ class BaseModule(nn.Module):
     def persist(self):
         torch.save(self.state_dict(), self.path)
 
+    def save(self):
+        torch.save(self, f'{self.path}_whole.h5')
+
     def preload_weights(self):
         self.load_state_dict(torch.load(self.path))
 
@@ -53,9 +56,21 @@ class BaseModule(nn.Module):
         return next(self.parameters()).device
 
 
+def load_whole_model(path):
+    return torch.load(path)
+
+
 def dense(i, o, a=None):
     l = nn.Linear(i, o)
     return l if a is None else nn.Sequential(l, a)
+
+
+def reshape(*shape):
+    class Reshaper(nn.Module):
+        def forward(self, x):
+            return x.reshape(*shape)
+
+    return Reshaper()
 
 
 def lam(forward):
