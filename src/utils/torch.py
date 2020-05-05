@@ -60,7 +60,23 @@ def load_whole_model(path):
     return torch.load(path)
 
 
-def dense(i, o, a=None):
+def batch_conv(x, w):
+    # SRC - https://discuss.pytorch.org/t/apply-different-convolutions-to-a-batch-of-tensors/56901/2
+
+    batch_size = x.size(0)
+    output_size = w.size(2)
+
+    o = F.conv2d(
+        x.reshape(1, batch_size * x.size(1), x.size(2), x.size(3)),
+        w.reshape(batch_size * w.size(1), w.size(2), w.size(3), w.size(4)),
+        groups=batch_size,
+    )
+    o = o.reshape(batch_size, output_size, o.size(2), o.size(3))
+
+    return o
+
+
+def dense(i, o, a=get_activation()):
     l = nn.Linear(i, o)
     return l if a is None else nn.Sequential(l, a)
 

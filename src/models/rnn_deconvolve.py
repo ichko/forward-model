@@ -90,7 +90,8 @@ class RNN(tu.BaseModule):
         """
         x -> (precondition_frames, actions)
             precondition_frames -> [bs, num_preconditions, 3, H, W]
-            actions             -> [bs, sequence, action_id]
+            actions             -> [bs, sequence]
+        return -> future frame
         """
         precondition_frames, actions = x
         precondition_frames = torch.FloatTensor(precondition_frames) \
