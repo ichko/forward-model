@@ -11,7 +11,8 @@ Experiments and models for my masters thesis on learning environment dynamics fr
 
 - Models
   - [x] RNN Deconvolution Baseline
-  - [ ] Learn frame transformations
+  - [x] Learn frame transformations
     - Instead of compressing the state like the RNN does
     - Action + Precondition (last few frames) -> transformation vector T
     - Use T to transform the current frame to the future frame
+    - [ ] Play rollout of frame transformations - results in wandb look promising
