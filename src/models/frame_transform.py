@@ -142,18 +142,26 @@ class FrameTransformer(tu.BaseModule):
         return loss, {'y': y, 'y_pred': y_pred}
 
 
+def get_instance(num_precondition_frames, frame_size, num_actions):
+    return FrameTransformer(
+        num_preconditions=num_precondition_frames,
+        frame_size=frame_size,
+        num_actions=num_actions,
+        action_embedding_size=32,
+        precondition_flat_size=512,
+    )
+
+
 def sanity_check():
     num_precondition_frames = 1
     frame_size = (64, 64)
     num_actions = 3
     bs = 10
 
-    model = FrameTransformer(
-        num_preconditions=num_precondition_frames,
+    model = get_instance(
+        num_precondition_frames=num_precondition_frames,
         frame_size=frame_size,
         num_actions=num_actions,
-        action_embedding_size=32,
-        precondition_flat_size=512,
     ).to('cuda')
 
     print(f'RNN NUM PARAMS {model.count_parameters():08,}')
