@@ -11,6 +11,8 @@ class WAndBLogger:
 
         wandb.init(dir='.reports', project='forward_models_2', config=hparams)
         wandb.watch(model)
+        wandb.config.name = model.name
+
         # wandb.save('data.py')
         # wandb.save('utils.py')
         # wandb.save('run_experiment.py')

@@ -1,4 +1,4 @@
-from src.models.frame_transform import sanity_check, get_instance
+from src.models.kernel_regressor import sanity_check, make_model
 from src.data.tuple_generator import get_tuple_data
 from src.utils.trainer import fit
 from src.utils import persist
@@ -18,13 +18,13 @@ import sneks
 hparams = argparse.Namespace(
     env_name='CubeCrash-v0',
     precondition_size=1,
-    num_rollouts=10_000,
+    dataset_size=100_000,
     frame_size=(64, 64),
-    bs=32,
+    bs=64,
     log_interval=40,
     lr=0.001,
     device='cuda',
-    epochs=2,
+    epochs=5000,
 )
 
 
@@ -33,7 +33,7 @@ def get_env():
 
 
 def get_model(env):
-    model = get_instance(
+    model = make_model(
         num_precondition_frames=hparams.precondition_size,
         frame_size=hparams.frame_size,
         num_actions=env.action_space.n,
@@ -49,7 +49,7 @@ def get_data_generator(env, agent=None):
     return get_tuple_data(
         env=env,
         agent=agent,
-        dataset_size=hparams.num_rollouts,
+        dataset_size=hparams.dataset_size,
         frame_size=hparams.frame_size,
         precondition_size=1,
         bs=hparams.bs,
@@ -62,7 +62,6 @@ def main():
 
     env = get_env()
     train_data = get_data_generator(env)
-    val_data_generator = get_data_generator(env)
 
     model = get_model(env)
     model.configure_optim(lr=hparams.lr)

@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class FrameTransformer(tu.BaseModule):
+class KernelRegressor(tu.BaseModule):
     def __init__(
         self,
         num_preconditions,
@@ -17,6 +17,7 @@ class FrameTransformer(tu.BaseModule):
         precondition_flat_size,
     ):
         super().__init__()
+        self.name = 'Kernel Regressor'
 
         self.precondition_channels = 3 * num_preconditions
         self.frame_size = frame_size
@@ -142,8 +143,8 @@ class FrameTransformer(tu.BaseModule):
         return loss, {'y': y, 'y_pred': y_pred}
 
 
-def get_instance(num_precondition_frames, frame_size, num_actions):
-    return FrameTransformer(
+def make_model(num_precondition_frames, frame_size, num_actions):
+    return KernelRegressor(
         num_preconditions=num_precondition_frames,
         frame_size=frame_size,
         num_actions=num_actions,
@@ -158,7 +159,7 @@ def sanity_check():
     num_actions = 3
     bs = 10
 
-    model = get_instance(
+    model = make_model(
         num_precondition_frames=num_precondition_frames,
         frame_size=frame_size,
         num_actions=num_actions,

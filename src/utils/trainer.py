@@ -56,7 +56,13 @@ def fit(model, data, epochs, logger, log_interval):
                 logger.log_info(train_info, prefix='train')
 
                 with torch.no_grad():
-                    val_loss, val_info = model.optim_step(next(val_iter))
+                    try:
+                        batch = next(val_iter)
+                    except StopIteration as _e:
+                        val_iter = iter(val_data)
+                        batch = next(val_iter)
+
+                    val_loss, val_info = model.optim_step(batch)
                     logger.log({'val_loss': val_loss})
                     logger.log_info(val_info, prefix='val')
 

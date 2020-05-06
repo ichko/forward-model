@@ -28,6 +28,8 @@ class RNN(tu.BaseModule):
         rnn_hidden_size,
     ):
         super().__init__()
+        self.name = 'RNN Frame Deconvolve'
+
         self.frame_size = frame_size
         self.precondition_channels = num_precondition_frames * 3
         self.num_rnn_layers = num_rnn_layers
