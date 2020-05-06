@@ -1,8 +1,12 @@
 import wandb
 
 
-class WAndBVideoLogger:
-    def __init__(self, info_log_interval, model, hparams):
+class WAndBLogger:
+    def __init__(self, info_log_interval, model, hparams, type):
+        assert type in ['video', 'image'], \
+            '`type` should be "video" or "image"'
+
+        self.type = type
         self.info_log_interval = info_log_interval
 
         wandb.init(dir='.reports', project='forward_models_2', config=hparams)
@@ -27,8 +31,10 @@ class WAndBVideoLogger:
         y_pred = info['y_pred'][:num_log_images].detach().cpu() * 255
         diff = abs(y - y_pred)
 
+        wrapper_cls = wandb.Video if self.type == 'video' else wandb.Image
+
         wandb.log({
-            f'{prefix}_y': [wandb.Video(i) for i in y],
-            f'{prefix}_y_pred': [wandb.Video(i) for i in y_pred],
-            f'{prefix}_diff': [wandb.Video(i) for i in diff]
+            f'{prefix}_y': [wrapper_cls(i) for i in y],
+            f'{prefix}_y_pred': [wrapper_cls(i) for i in y_pred],
+            f'{prefix}_diff': [wrapper_cls(i) for i in diff]
         })
