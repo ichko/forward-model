@@ -101,26 +101,30 @@ def resize(t, size):
     return F.interpolate(t, size, mode='bicubic', align_corners=True)
 
 
-def conv_block(i, o, ks, s, p, a=get_activation(), d=1):
+def conv_block(i, o, ks, s, p, a=get_activation(), d=1, bn=True):
+    block = [nn.Conv2d(i, o, kernel_size=ks, stride=s, padding=p, dilation=d)]
+    if bn: block.append(nn.BatchNorm2d(o))
+    if a is not None: block.append(a)
+
+    return nn.Sequential(*block)
+
+
+def deconv_block(i, o, ks, s, p, a=get_activation(), d=1, bn=True):
     block = [
-        nn.Conv2d(i, o, kernel_size=ks, stride=s, padding=p, dilation=d),
-        nn.BatchNorm2d(o),
+        nn.ConvTranspose2d(
+            i,
+            o,
+            kernel_size=ks,
+            stride=s,
+            padding=p,
+            dilation=d,
+        )
     ]
 
-    return nn.Sequential(*(block if a is None else [*block, a]))
+    if bn: block.append(nn.BatchNorm2d(o))
+    if a is not None: block.append(a)
 
-
-def deconv_block(i, o, ks, s, p, a=get_activation(), d=1):
-    conv = nn.ConvTranspose2d(
-        i,
-        o,
-        kernel_size=ks,
-        stride=s,
-        padding=p,
-        dilation=d,
-    )
-
-    return conv if a is None else nn.Sequential(*[conv, nn.BatchNorm2d(o), a])
+    return nn.Sequential(*block)
 
 
 def compute_conv_output(net, frame_shape):

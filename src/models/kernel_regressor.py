@@ -147,15 +147,16 @@ class KernelRegressor(tu.BaseModule):
         precondition -> [num_preconditions, 3, H, W]
         actions -> [sequence_of_ids]
         """
-        frame_sequence = [f for f in preconditions / 255.0]
+        frame_sequence = [f for f in preconditions]
         for action in actions:
             future_frame = self(
-                [[preconditions], [action]], )[0].detach().cpu().numpy()
+                [[preconditions], [action]], )[0].detach().cpu().numpy() * 255
             preconditions = np.roll(preconditions, shift=-1, axis=0)
             preconditions[-1] = future_frame
             frame_sequence.append(future_frame)
 
-        return np.array(frame_sequence[:-1])  # the last frame is not rendered
+        # the last frame is not rendered
+        return np.array(frame_sequence[:-1]) / 255.0
 
 
 def make_model(num_precondition_frames, frame_size, num_actions):

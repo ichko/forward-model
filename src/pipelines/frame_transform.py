@@ -38,7 +38,7 @@ def get_model(env):
         frame_size=hparams.frame_size,
         num_actions=env.action_space.n,
     )
-    model.make_persisted('.models/frame_transform.h5')
+    model.make_persisted('.models/frame_transform-best.h5')
 
     return model
 
