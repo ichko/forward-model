@@ -9,9 +9,16 @@ class WAndBLogger:
         self.type = type
         self.info_log_interval = info_log_interval
 
-        wandb.init(dir='.reports', project='forward_models_2', config=hparams)
+        wandb.init(
+            dir='.reports',
+            project='forward_models_2',
+            config=dict(
+                hparams._get_kwargs(),
+                name=model.name,
+                model_num_params=model.count_parameters(),
+            ),
+        )
         wandb.watch(model)
-        wandb.config.name = model.name
 
         # wandb.save('data.py')
         # wandb.save('utils.py')
