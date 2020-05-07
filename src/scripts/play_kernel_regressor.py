@@ -18,6 +18,7 @@ def main():
 
     model = get_model(env)
     model.preload_weights()
+    model = model.eval()
 
     true_frames = []
     actions = []
@@ -30,6 +31,7 @@ def main():
         true_frames.append(frame)
 
         action = env.action_space.sample()
+        action = 1
         _, _, done, _, = env.step(action)
         actions.append(action)
 
