@@ -27,11 +27,11 @@ def main():
 
     while not done:
         frame = env.render('rgb_array')
-        frame = cv2.resize(frame, (64, 64))
+        frame = cv2.resize(frame, (16, 16))
         true_frames.append(frame)
 
         action = env.action_space.sample()
-        action = 1
+        # action = 2
         _, _, done, _, = env.step(action)
         actions.append(action)
 

@@ -60,7 +60,7 @@ def load_whole_model(path):
     return torch.load(path)
 
 
-def batch_conv(x, w):
+def batch_conv(x, w, p=0):
     # SRC - https://discuss.pytorch.org/t/apply-different-convolutions-to-a-batch-of-tensors/56901/2
 
     batch_size = x.size(0)
@@ -70,6 +70,7 @@ def batch_conv(x, w):
         x.reshape(1, batch_size * x.size(1), x.size(2), x.size(3)),
         w.reshape(batch_size * w.size(1), w.size(2), w.size(3), w.size(4)),
         groups=batch_size,
+        padding=p,
     )
     o = o.reshape(batch_size, output_size, o.size(2), o.size(3))
 

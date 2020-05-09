@@ -16,10 +16,11 @@ import sneks
 # parser.add_argument()
 
 hparams = argparse.Namespace(
-    env_name='CubeCrash-v0',
+    env_name='snek-rgb-16-v1',
+    # env_name='CubeCrash-v0',
     precondition_size=1,
     dataset_size=100_000,
-    frame_size=(64, 64),
+    frame_size=(16, 16),
     bs=64,
     log_interval=40,
     lr=0.001,
@@ -38,7 +39,7 @@ def get_model(env):
         frame_size=hparams.frame_size,
         num_actions=env.action_space.n,
     )
-    model.make_persisted('.models/frame_transform-best.h5')
+    model.make_persisted('.models/frame_transform.h5')
 
     return model
 

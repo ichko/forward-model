@@ -28,11 +28,11 @@ class KernelRegressor(tu.BaseModule):
                 i=self.precondition_channels,
                 o=16,
                 ks=5,
-                s=2,
+                s=1,
                 p=2,
                 d=1,
             ),
-            tu.conv_block(i=16, o=32, ks=5, s=2, p=2, d=1),
+            tu.conv_block(i=16, o=32, ks=5, s=1, p=2, d=1),
             nn.Dropout2d(0.1),
             tu.conv_block(
                 i=32,
@@ -75,9 +75,9 @@ class KernelRegressor(tu.BaseModule):
             nn.Dropout2d(0.2),
             tu.conv_block(i=3, o=16, ks=3, s=1, p=1, d=1),
             tu.conv_block(i=16, o=32, ks=5, s=1, p=2, d=2),
-            tu.conv_block(i=32, o=32, ks=5, s=1, p=2, d=2),
+            tu.conv_block(i=32, o=32, ks=5, s=1, p=2, d=1),
             nn.Dropout2d(0.1),
-            tu.conv_block(i=32, o=8, ks=7, s=1, p=2, d=2, a=None, bn=False),
+            tu.conv_block(i=32, o=8, ks=7, s=1, p=1, d=1, a=None, bn=False),
         )
 
         self.expand_transformed = nn.Sequential(
@@ -85,14 +85,14 @@ class KernelRegressor(tu.BaseModule):
             nn.Dropout2d(0.2),
             tu.deconv_block(i=16, o=16, ks=5, s=1, p=2, d=2),
             nn.Dropout2d(0.1),
-            tu.deconv_block(i=16, o=16, ks=7, s=1, p=2, d=2),
+            tu.deconv_block(i=16, o=16, ks=5, s=1, p=2, d=1),
             tu.deconv_block(
                 i=16,
                 o=3,
                 ks=7,
                 s=1,
                 p=2,
-                d=2,
+                d=1,
                 a=nn.Sigmoid(),
                 bn=False,
             ),
@@ -131,9 +131,13 @@ class KernelRegressor(tu.BaseModule):
         )
         kernel_1, kernel_2 = [t[:, 0] for t in [kernel_1, kernel_2]]
 
-        transformed_frame = tu.batch_conv(current_frame_feature_map, kernel_1)
+        transformed_frame = tu.batch_conv(
+            current_frame_feature_map,
+            kernel_1,
+            p=2,
+        )
         transformed_frame = F.relu(transformed_frame)
-        transformed_frame = tu.batch_conv(transformed_frame, kernel_2)
+        transformed_frame = tu.batch_conv(transformed_frame, kernel_2, p=1)
         transformed_frame = torch.tanh(transformed_frame)
 
         pred_future_frame = self.expand_transformed(transformed_frame)
@@ -169,7 +173,7 @@ class KernelRegressor(tu.BaseModule):
     def rollout(self, preconditions, actions):
         """
         precondition -> [num_preconditions, 3, H, W]
-        actions -> [sequence_of_ids]
+        actions      -> [sequence_of_ids]
         """
         frame_sequence = [f for f in preconditions]
         for action in actions:
@@ -195,7 +199,7 @@ def make_model(num_precondition_frames, frame_size, num_actions):
 
 def sanity_check():
     num_precondition_frames = 1
-    frame_size = (64, 64)
+    frame_size = (16, 16)
     num_actions = 3
     bs = 10
 
