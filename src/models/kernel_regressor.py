@@ -23,7 +23,7 @@ class KernelRegressor(tu.BaseModule):
         self.frame_size = frame_size
 
         self.compute_precondition = nn.Sequential(
-            nn.Dropout2d(0.05),
+            nn.Dropout2d(0.15),
             tu.conv_block(
                 i=self.precondition_channels,
                 o=16,
@@ -33,14 +33,14 @@ class KernelRegressor(tu.BaseModule):
                 d=1,
             ),
             tu.conv_block(i=16, o=32, ks=5, s=1, p=2, d=1),
-            nn.Dropout2d(0.05),
+            nn.Dropout2d(0.1),
             tu.conv_block(
                 i=32,
                 o=4,
                 ks=7,
                 s=1,
                 p=2,
-                d=2,
+                d=1,
                 bn=False,
                 a=nn.Tanh(),
             ),
@@ -66,25 +66,24 @@ class KernelRegressor(tu.BaseModule):
         )
 
         self.action_precondition_to_kernels = nn.Sequential(
-            tu.dense(i=precondition_flat_size + action_embedding_size, o=256),
-            tu.dense(i=256, o=2048, a=nn.Tanh()),
-            tu.reshape(-1, 2, 8, 8, 4, 4),
+            tu.dense(i=precondition_flat_size + action_embedding_size, o=512),
+            tu.dense(i=512, o=1800, a=nn.Tanh()),
+            tu.reshape(-1, 2, 6, 6, 5, 5),
         )
 
         self.current_frame_map = nn.Sequential(
-            nn.Dropout2d(0.1),
+            nn.Dropout2d(0.05),
             tu.conv_block(i=3, o=16, ks=3, s=1, p=1, d=1),
-            tu.conv_block(i=16, o=32, ks=5, s=1, p=2, d=1),
-            tu.conv_block(i=32, o=32, ks=5, s=1, p=2, d=1),
-            nn.Dropout2d(0.1),
-            tu.conv_block(i=32, o=8, ks=7, s=1, p=3, d=1, a=None, bn=False),
+            tu.conv_block(i=16, o=64, ks=5, s=1, p=2, d=1),
+            tu.conv_block(i=64, o=32, ks=5, s=1, p=2, d=1),
+            tu.conv_block(i=32, o=6, ks=7, s=1, p=3, d=1, a=None, bn=False),
         )
 
         self.expand_transformed = nn.Sequential(
-            tu.deconv_block(i=8, o=16, ks=3, s=1, p=1, d=1),
-            nn.Dropout2d(0.1),
+            tu.deconv_block(i=6, o=16, ks=3, s=1, p=1, d=1),
+            # nn.Dropout2d(0.05),
             tu.deconv_block(i=16, o=16, ks=5, s=1, p=2, d=1),
-            nn.Dropout2d(0.1),
+            # nn.Dropout2d(0.05),
             tu.deconv_block(
                 i=16,
                 o=3,
@@ -105,7 +104,7 @@ class KernelRegressor(tu.BaseModule):
         """
         precondition_frames, actions = x
         precondition_frames = torch.FloatTensor(precondition_frames) \
-            .to(self.device)
+            .to(self.device) / 255.0
         actions = torch.LongTensor(actions).to(self.device)
 
         current_frame = precondition_frames[:, 0]
@@ -136,7 +135,7 @@ class KernelRegressor(tu.BaseModule):
             p=2,
         )
         transformed_frame = F.relu(transformed_frame)
-        transformed_frame = tu.batch_conv(transformed_frame, kernel_2, p=1)
+        transformed_frame = tu.batch_conv(transformed_frame, kernel_2, p=2)
         transformed_frame = torch.tanh(transformed_frame)
 
         pred_future_frame = self.expand_transformed(transformed_frame)
@@ -147,7 +146,7 @@ class KernelRegressor(tu.BaseModule):
         self.optim = torch.optim.Adam(self.parameters(), lr=1)
 
         def lr_lambda(it):
-            return lr / (it // 1000 + 1)
+            return lr / (it // 5000 + 1)
 
         self.scheduler = torch.optim.lr_scheduler.LambdaLR(
             self.optim,
