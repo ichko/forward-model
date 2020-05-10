@@ -1,4 +1,4 @@
-from src.models.kernel_regressor import sanity_check, make_model
+from src.models.embedding_transformer import sanity_check, make_model
 from src.data.tuple_generator import get_tuple_data
 from src.utils.trainer import fit
 from src.utils import persist
@@ -18,12 +18,12 @@ import sneks
 hparams = argparse.Namespace(
     env_name='snek-rgb-16-v1',
     # env_name='CubeCrash-v0',
-    precondition_size=1,
-    dataset_size=100_000,
-    frame_size=(16, 16),
+    precondition_size=2,
+    dataset_size=50_000,
+    frame_size=(32, 32),
     bs=64,
-    log_interval=40,
-    lr=0.001,
+    log_interval=100,
+    lr=0.0005,
     device='cuda',
     epochs=5000,
 )
@@ -52,7 +52,7 @@ def get_data_generator(env, agent=None):
         agent=agent,
         dataset_size=hparams.dataset_size,
         frame_size=hparams.frame_size,
-        precondition_size=1,
+        precondition_size=hparams.precondition_size,
         bs=hparams.bs,
         val_frac=0.2,
     )

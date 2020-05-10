@@ -1,5 +1,7 @@
 import os
 
+import numpy as np
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -64,7 +66,7 @@ def batch_conv(x, w, p=0):
     # SRC - https://discuss.pytorch.org/t/apply-different-convolutions-to-a-batch-of-tensors/56901/2
 
     batch_size = x.size(0)
-    output_size = w.size(2)
+    output_size = w.size(1)
 
     o = F.conv2d(
         x.reshape(1, batch_size * x.size(1), x.size(2), x.size(3)),
@@ -134,3 +136,16 @@ def compute_conv_output(net, frame_shape):
         out = net(t)
 
         return out.shape
+
+
+def extract_tensors(vec, tensor_shapes):
+    slice_indices = [0] + [np.prod(t) for t in tensor_shapes]
+    slice_indices = np.cumsum(slice_indices)
+
+    tensors = []
+    for i in range(len(slice_indices) - 1):
+        t = vec[:, slice_indices[i]:slice_indices[i + 1]]
+        t = t.reshape(-1, *tensor_shapes[i])
+        tensors.append(t)
+
+    return tensors

@@ -27,7 +27,7 @@ def main():
 
     while not done:
         frame = env.render('rgb_array')
-        frame = cv2.resize(frame, (16, 16))
+        frame = cv2.resize(frame, (32, 32))
         true_frames.append(frame)
 
         action = env.action_space.sample()
@@ -39,7 +39,7 @@ def main():
     true_frames = np.transpose(true_frames, (0, 3, 1, 2))
     actions = np.array(actions)
 
-    pred_frames = model.rollout(true_frames[:1], actions)
+    pred_frames = model.rollout(true_frames[:2], actions)
 
     true_frames = true_frames / 255.0
     diff = abs(true_frames - pred_frames)
@@ -50,7 +50,7 @@ def main():
     cv2.resizeWindow(win_name, 900, 300)
 
     for frame in grid:
-        time.sleep(1 / 30)
+        time.sleep(1 / 15)
         cv2.imshow(win_name, frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
