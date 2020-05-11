@@ -19,17 +19,16 @@ class EmbeddingTransformer(tu.BaseModule):
             nn.Dropout2d(0.1),
             tu.conv_block(
                 i=self.precondition_channels,
-                o=16,
+                o=128,
                 ks=5,
                 s=1,
                 p=2,
                 d=1,
             ),
-            tu.conv_block(i=16, o=32, ks=5, s=1, p=2, d=1),
-            # nn.Dropout2d(0.05),
+            tu.conv_block(i=128, o=64, ks=5, s=1, p=2, d=1),
             tu.conv_block(
-                i=32,
-                o=8,
+                i=64,
+                o=16,
                 ks=7,
                 s=1,
                 p=3,
@@ -37,12 +36,13 @@ class EmbeddingTransformer(tu.BaseModule):
                 bn=False,
                 a=nn.Tanh(),
             ),
+            # nn.Dropout2d(0.05),
         )
 
         self.kernel_shapes = [
-            (16, 8, 3, 3),
-            (16, 16, 5, 5),
-            (8, 16, 7, 7),
+            (64, 16, 3, 3),
+            (64, 64, 5, 5),
+            (32, 64, 7, 7),
         ]
         self.kernels_flat = [np.prod(k) for k in self.kernel_shapes]
 
@@ -52,12 +52,12 @@ class EmbeddingTransformer(tu.BaseModule):
         )
 
         self.expand_transformed = nn.Sequential(
-            tu.deconv_block(i=8, o=16, ks=3, s=1, p=1, d=1),
+            tu.deconv_block(i=32, o=64, ks=3, s=1, p=1, d=1),
             # nn.Dropout2d(0.05),
-            tu.deconv_block(i=16, o=16, ks=5, s=1, p=2, d=1),
+            tu.deconv_block(i=64, o=32, ks=5, s=1, p=2, d=1),
             # nn.Dropout2d(0.05),
             tu.deconv_block(
-                i=16,
+                i=32,
                 o=3,
                 ks=7,
                 s=1,
