@@ -109,7 +109,6 @@ class RNN(tu.BaseModule):
             self.precondition_channels,
             *self.frame_size[::-1],  # W, H -> H, W
         )
-        seq_len = actions.size(1)
 
         rnn_preconditions = self.compute_precondition(precondition_frames)
         rnn_preconditions = self.precondition_frame_to_rnn(rnn_preconditions)
@@ -120,15 +119,7 @@ class RNN(tu.BaseModule):
 
         action_vectors = self.action_embedding(actions)
         rnn_out_vectors, _ = self.rnn(action_vectors, rnn_preconditions)
-        # put sequence in batch dim to facilitate fast (time distributed) convolution
-        # TODO: Extract time_distributed utility
-        rnn_out_vectors = rnn_out_vectors.reshape(
-            -1,
-            rnn_out_vectors.size(-1),
-        )
-
-        frames = self.deconvolve_to_frame(rnn_out_vectors)
-        frames = frames.reshape(-1, seq_len, *frames.shape[-3:])
+        frames = tu.time_distribute(rnn_out_vectors, self.deconvolve_to_frame)
 
         return frames
 
