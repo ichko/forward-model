@@ -1,4 +1,4 @@
-from src.models.rnn_deconvolve import sanity_check as rnn_sanity_check, RNN
+from src.models.rnn_deconvolve import sanity_check, make_model
 from src.data.rollout_generator import RolloutGenerator
 from src.utils.trainer import fit_generator
 from src.loggers.wandb import WAndBLogger
@@ -15,13 +15,13 @@ import sneks
 # parser.add_argument()
 
 hparams = argparse.Namespace(
-    env_name='CubeCrash-v0',
+    env_name='snek-rgb-16-v1',
     precondition_size=1,
-    num_rollouts=10_000,
-    frame_size=(64, 64),
+    dataset_size=50_000,
+    frame_size=(16, 16),
     its=50_000,
-    bs=32,
-    log_interval=40,
+    bs=64,
+    log_interval=300,
     lr=0.001,
     device='cuda',
     max_seq_len=32,
@@ -33,13 +33,10 @@ def get_env():
 
 
 def get_model(env):
-    model = RNN(
-        num_precondition_frames=hparams.precondition_size,
+    model = make_model(
+        precondition_size=hparams.precondition_size,
         frame_size=hparams.frame_size,
-        num_rnn_layers=3,
         num_actions=env.action_space.n,
-        action_embedding_size=32,
-        rnn_hidden_size=32,
     )
     model.make_persisted('.models/rnn.h5')
 
@@ -54,7 +51,7 @@ def get_data_generator(env, agent=None):
         agent=agent,
         bs=hparams.bs,
         max_seq_len=hparams.max_seq_len,
-        buffer_size=hparams.num_rollouts,
+        buffer_size=hparams.dataset_size,
         frame_size=hparams.frame_size,
     )
 
@@ -67,13 +64,19 @@ def get_data_generator(env, agent=None):
 
 
 def main():
-    rnn_sanity_check()
+    sanity_check()
 
     env = get_env()
     train_data_generator = get_data_generator(env)
     val_data_generator = get_data_generator(env)
 
     model = get_model(env)
+    try:
+        model.preload_weights()
+        print('>>> MODEL PRELOADED')
+    except Exception as _e:
+        print('>>> Could not preload! Starting from scratch.')
+
     model.configure_optim(lr=hparams.lr)
     model = model.to(hparams.device)
 
