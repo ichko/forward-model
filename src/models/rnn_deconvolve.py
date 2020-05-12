@@ -35,23 +35,30 @@ class RNN(tu.BaseModule):
         self.num_rnn_layers = num_rnn_layers
 
         self.compute_precondition = nn.Sequential(
+            nn.Dropout2d(p=0.1),
             tu.conv_block(
                 i=self.precondition_channels,
                 o=16,
-                ks=5,
-                s=2,
-                p=2,
+                ks=3,
+                s=1,
+                p=1,
                 d=1,
             ),
-            nn.Dropout2d(p=0.4),
-            tu.conv_block(i=16, o=32, ks=5, s=2, p=2, d=1),
-            nn.Dropout2d(p=0.2),
-            tu.conv_block(i=32, o=4, ks=7, s=1, p=2, d=2),
+            tu.conv_block(i=16, o=32, ks=5, s=1, p=2, d=1),
+            nn.Dropout2d(p=0.05),
+            tu.conv_block(
+                i=32,
+                o=4,
+                ks=7,
+                s=1,
+                p=3,
+                d=1,  # TODO: try with bigger dilation
+            ),
         )
 
         self.precondition_out = tu.compute_conv_output(
             self.compute_precondition,
-            (3, *frame_size),
+            (self.precondition_channels, *frame_size),
         )
         self.flat_precondition_size = np.prod(self.precondition_out[-3:])
 
@@ -76,16 +83,12 @@ class RNN(tu.BaseModule):
         )
 
         self.deconvolve_to_frame = nn.Sequential(
-            tu.dense(i=rnn_hidden_size, o=1024),
-            nn.Dropout(p=0.4),
-            tu.reshape(-1, 4, 16, 16),
-            tu.deconv_block(i=4, o=32, ks=5, s=1, p=2, d=2),
-            nn.Dropout2d(p=0.3),
-            tu.deconv_block(i=32, o=32, ks=7, s=1, p=2, d=2),
-            nn.Dropout2d(p=0.2),
-            tu.deconv_block(i=32, o=32, ks=7, s=2, p=2, d=2),
+            tu.dense(i=rnn_hidden_size, o=400),
+            tu.reshape(-1, 4, 10, 10),
+            tu.deconv_block(i=4, o=32, ks=5, s=1, p=1, d=1),
             nn.Dropout2d(p=0.1),
-            tu.deconv_block(i=32, o=3, ks=4, s=1, p=1, d=1, a=nn.Sigmoid()),
+            tu.deconv_block(i=32, o=32, ks=7, s=1, p=3, d=1),
+            tu.deconv_block(i=32, o=3, ks=7, s=1, p=1, d=1, a=nn.Sigmoid()),
         )
 
     def forward(self, x):
@@ -155,20 +158,28 @@ class RNN(tu.BaseModule):
         return loss, {'y': y, 'y_pred': y_pred}
 
 
+def make_model(precondition_size, frame_size, num_actions):
+    return RNN(
+        num_precondition_frames=precondition_size,
+        frame_size=frame_size,
+        num_rnn_layers=3,
+        num_actions=num_actions,
+        action_embedding_size=32,
+        rnn_hidden_size=128,
+    )
+
+
 def sanity_check():
     num_precondition_frames = 1
-    frame_size = (64, 64)
+    frame_size = (16, 16)
     num_actions = 3
     max_seq_len = 15
     bs = 10
 
-    rnn = RNN(
-        num_precondition_frames=num_precondition_frames,
-        frame_size=frame_size,
-        num_rnn_layers=3,
-        num_actions=num_actions,
-        action_embedding_size=16,
-        rnn_hidden_size=32,
+    rnn = make_model(
+        num_precondition_frames,
+        frame_size,
+        num_actions,
     ).to('cuda')
 
     print(f'RNN NUM PARAMS {rnn.count_parameters():08,}')
