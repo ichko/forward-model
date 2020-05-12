@@ -149,3 +149,20 @@ def extract_tensors(vec, tensor_shapes):
         tensors.append(t)
 
     return tensors
+
+
+def time_distribute(input, module):
+    """
+    input  -> [bs, seq, *x*]
+    module -> something that takes *x*
+    return -> [bs, seq, module(x)]
+    This is done in the batch dimension to facilitate parallel execution.
+    """
+    bs = input.size(0)
+    seq_len = input.size(1)
+    input = input.reshape(-1, *input.shape[2:])
+
+    out = module(input)
+    out = out.reshape(bs, seq_len, *out.shape[1:])
+
+    return out
