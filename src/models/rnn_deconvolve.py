@@ -35,24 +35,24 @@ class RNN(tu.BaseModule):
         self.num_rnn_layers = num_rnn_layers
 
         self.compute_precondition = nn.Sequential(
-            nn.Dropout2d(p=0.1),
+            nn.Dropout2d(p=0.2),
             tu.conv_block(
                 i=self.precondition_channels,
-                o=16,
+                o=32,
                 ks=3,
                 s=1,
                 p=1,
                 d=1,
             ),
-            tu.conv_block(i=16, o=32, ks=5, s=1, p=2, d=1),
+            tu.conv_block(i=32, o=64, ks=3, s=1, p=1, d=1),
             nn.Dropout2d(p=0.05),
             tu.conv_block(
-                i=32,
-                o=4,
-                ks=7,
+                i=64,
+                o=8,
+                ks=5,
                 s=1,
-                p=3,
-                d=1,  # TODO: try with bigger dilation
+                p=2,
+                d=2,  # TODO: try with bigger dilation
             ),
         )
 
@@ -86,7 +86,7 @@ class RNN(tu.BaseModule):
             tu.dense(i=rnn_hidden_size, o=400),
             tu.reshape(-1, 4, 10, 10),
             tu.deconv_block(i=4, o=32, ks=5, s=1, p=1, d=1),
-            nn.Dropout2d(p=0.1),
+            # nn.Dropout2d(p=0.1),
             tu.deconv_block(i=32, o=32, ks=7, s=1, p=3, d=1),
             tu.deconv_block(i=32, o=3, ks=7, s=1, p=1, d=1, a=nn.Sigmoid()),
         )
@@ -99,8 +99,8 @@ class RNN(tu.BaseModule):
         return -> future frame
         """
         precondition_frames, actions = x
-        precondition_frames = torch.FloatTensor(precondition_frames) \
-            .to(self.device) / 255
+        precondition_frames = torch.FloatTensor(precondition_frames / 255.0) \
+            .to(self.device)
 
         actions = torch.LongTensor(actions).to(self.device)
 
@@ -121,6 +121,7 @@ class RNN(tu.BaseModule):
         action_vectors = self.action_embedding(actions)
         rnn_out_vectors, _ = self.rnn(action_vectors, rnn_preconditions)
         # put sequence in batch dim to facilitate fast (time distributed) convolution
+        # TODO: Extract time_distributed utility
         rnn_out_vectors = rnn_out_vectors.reshape(
             -1,
             rnn_out_vectors.size(-1),
@@ -132,10 +133,11 @@ class RNN(tu.BaseModule):
         return frames
 
     def configure_optim(self, lr):
+        # LR should be 1. The actual LR comes from the scheduler.
         self.optim = torch.optim.Adam(self.parameters(), lr=1)
 
         def lr_lambda(it):
-            return lr / (it // 1000 + 1)
+            return lr / (it // 5000 + 1)
 
         self.scheduler = torch.optim.lr_scheduler.LambdaLR(
             self.optim,
@@ -162,7 +164,7 @@ def make_model(precondition_size, frame_size, num_actions):
     return RNN(
         num_precondition_frames=precondition_size,
         frame_size=frame_size,
-        num_rnn_layers=3,
+        num_rnn_layers=2,
         num_actions=num_actions,
         action_embedding_size=32,
         rnn_hidden_size=128,
@@ -187,11 +189,10 @@ def sanity_check():
         f'PRECONDITION FEATURE MAP {rnn.precondition_out} [{rnn.flat_precondition_size}]'
     )
 
-    precondition_frames = torch.rand(
-        bs,
-        num_precondition_frames,
-        3,
-        *frame_size,
+    precondition_frames = torch.randint(
+        0,
+        255,
+        size=(bs, num_precondition_frames, 3, *frame_size),
     )
     actions = torch.randint(0, num_actions, size=(bs, max_seq_len))
     out_frames = rnn([precondition_frames, actions]).detach().cpu()

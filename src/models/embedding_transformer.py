@@ -16,16 +16,16 @@ class EmbeddingTransformer(tu.BaseModule):
         self.precondition_channels = 3 * num_preconditions
 
         self.compute_precondition = nn.Sequential(
-            nn.Dropout2d(0.1),
+            nn.Dropout2d(0.3),
             tu.conv_block(
                 i=self.precondition_channels,
-                o=128,
+                o=64,
                 ks=5,
                 s=1,
                 p=2,
                 d=1,
             ),
-            tu.conv_block(i=128, o=64, ks=5, s=1, p=2, d=1),
+            tu.conv_block(i=64, o=64, ks=5, s=1, p=2, d=1),
             tu.conv_block(
                 i=64,
                 o=16,
@@ -42,8 +42,12 @@ class EmbeddingTransformer(tu.BaseModule):
         self.kernel_shapes = [
             (64, 16, 3, 3),
             (64, 64, 5, 5),
-            (32, 64, 7, 7),
+            (32, 64, 5, 5),
         ]
+
+        self.batch_norms = nn.Sequential(
+            *[nn.BatchNorm2d(k[0]) for k in self.kernel_shapes])
+
         self.kernels_flat = [np.prod(k) for k in self.kernel_shapes]
 
         self.action_embedding = nn.Embedding(
@@ -92,10 +96,15 @@ class EmbeddingTransformer(tu.BaseModule):
         k1, k2, k3 = tu.extract_tensors(action_vec, self.kernel_shapes)
 
         transformed_frame = tu.batch_conv(precondition_feature_map, k1, p=1)
+        transformed_frame = self.batch_norms[0](transformed_frame)
         transformed_frame = F.relu(transformed_frame)
+
         transformed_frame = tu.batch_conv(transformed_frame, k2, p=2)
+        transformed_frame = self.batch_norms[1](transformed_frame)
         transformed_frame = torch.relu(transformed_frame)
-        transformed_frame = tu.batch_conv(transformed_frame, k3, p=3)
+
+        transformed_frame = tu.batch_conv(transformed_frame, k3, p=2)
+        transformed_frame = self.batch_norms[2](transformed_frame)
         transformed_frame = torch.tanh(transformed_frame)
 
         pred_future_frame = self.expand_transformed(transformed_frame)

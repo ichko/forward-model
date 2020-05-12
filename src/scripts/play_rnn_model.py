@@ -18,7 +18,7 @@ def main():
     env = get_env()
     data_generator = get_data_generator(
         env,
-        agent=lambda _: 2,
+        # agent=lambda _: 2,
     )
     X, frames = next(data_generator)
 
