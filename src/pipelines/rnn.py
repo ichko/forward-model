@@ -16,10 +16,10 @@ import sneks
 
 hparams = argparse.Namespace(
     env_name='snek-rgb-16-v1',
-    precondition_size=1,
-    dataset_size=50_000,
+    precondition_size=2,
+    dataset_size=200_000,
     frame_size=(16, 16),
-    its=50_000,
+    its=1_000_000,
     bs=64,
     log_interval=300,
     lr=0.001,

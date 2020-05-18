@@ -34,26 +34,16 @@ class RNN(tu.BaseModule):
         self.precondition_channels = num_precondition_frames * 3
         self.num_rnn_layers = num_rnn_layers
 
+        inp = self.precondition_channels
         self.compute_precondition = nn.Sequential(
             nn.Dropout2d(p=0.2),
-            tu.conv_block(
-                i=self.precondition_channels,
-                o=32,
-                ks=3,
-                s=1,
-                p=1,
-                d=1,
-            ),
-            tu.conv_block(i=32, o=64, ks=3, s=1, p=1, d=1),
-            nn.Dropout2d(p=0.05),
-            tu.conv_block(
-                i=64,
-                o=8,
-                ks=5,
-                s=1,
-                p=2,
-                d=2,  # TODO: try with bigger dilation
-            ),
+            tu.conv_block(i=inp, o=32, ks=4, s=1, p=1, d=1),
+            tu.conv_block(i=32, o=64, ks=4, s=1, p=1, d=1),
+            nn.Dropout2d(p=0.3),
+            tu.conv_block(i=64, o=64, ks=4, s=2, p=1, d=1),
+            tu.conv_block(i=64, o=128, ks=4, s=2, p=1, d=1),
+            nn.Dropout2d(p=0.2),
+            tu.conv_block(i=128, o=256, ks=4, s=2, p=1, d=1, bn=False),
         )
 
         self.precondition_out = tu.compute_conv_output(
@@ -75,6 +65,7 @@ class RNN(tu.BaseModule):
             hidden_size=rnn_hidden_size,
             num_layers=num_rnn_layers,
             batch_first=True,
+            dropout=0.1,
         )
 
         self.action_embedding = nn.Embedding(
@@ -83,12 +74,14 @@ class RNN(tu.BaseModule):
         )
 
         self.deconvolve_to_frame = nn.Sequential(
-            tu.dense(i=rnn_hidden_size, o=400),
-            tu.reshape(-1, 4, 10, 10),
-            tu.deconv_block(i=4, o=32, ks=5, s=1, p=1, d=1),
-            # nn.Dropout2d(p=0.1),
-            tu.deconv_block(i=32, o=32, ks=7, s=1, p=3, d=1),
-            tu.deconv_block(i=32, o=3, ks=7, s=1, p=1, d=1, a=nn.Sigmoid()),
+            tu.dense(i=rnn_hidden_size, o=256),
+            tu.reshape(-1, 256, 1, 1),
+            nn.Dropout2d(p=0.2),
+            tu.deconv_block(i=256, o=128, ks=5, s=1, p=1, d=1),
+            tu.deconv_block(i=128, o=64, ks=6, s=1, p=1, d=1),
+            nn.Dropout2d(p=0.1),
+            tu.deconv_block(i=64, o=32, ks=6, s=2, p=1, d=1),
+            tu.deconv_block(i=32, o=3, ks=5, s=1, p=1, d=1, a=nn.Sigmoid()),
         )
 
     def forward(self, x):
@@ -128,7 +121,7 @@ class RNN(tu.BaseModule):
         self.optim = torch.optim.Adam(self.parameters(), lr=1)
 
         def lr_lambda(it):
-            return lr / (it // 5000 + 1)
+            return lr / (it // 20000 + 1)
 
         self.scheduler = torch.optim.lr_scheduler.LambdaLR(
             self.optim,
@@ -157,13 +150,13 @@ def make_model(precondition_size, frame_size, num_actions):
         frame_size=frame_size,
         num_rnn_layers=2,
         num_actions=num_actions,
-        action_embedding_size=32,
-        rnn_hidden_size=128,
+        action_embedding_size=64,
+        rnn_hidden_size=256,
     )
 
 
 def sanity_check():
-    num_precondition_frames = 1
+    num_precondition_frames = 2
     frame_size = (16, 16)
     num_actions = 3
     max_seq_len = 15
