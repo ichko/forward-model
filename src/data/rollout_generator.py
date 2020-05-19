@@ -60,7 +60,9 @@ class RolloutGenerator:
 
                 if len(self.buffer) >= bs:
                     yield get_batch()
-                if done:
+
+                alive = env.alive if hasattr(env, 'alive') else True
+                if done or not alive:
                     break
 
             self.buffer.append([ep_id, actions, frames])

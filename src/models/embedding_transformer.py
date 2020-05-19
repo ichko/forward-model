@@ -15,16 +15,10 @@ class EmbeddingTransformer(tu.BaseModule):
         self.frame_size = frame_size
         self.precondition_channels = 3 * num_preconditions
 
+        inp = self.precondition_channels
         self.compute_precondition = nn.Sequential(
             nn.Dropout2d(0.3),
-            tu.conv_block(
-                i=self.precondition_channels,
-                o=64,
-                ks=5,
-                s=1,
-                p=2,
-                d=1,
-            ),
+            tu.conv_block(i=inp, o=64, ks=5, s=1, p=2, d=1),
             tu.conv_block(i=64, o=64, ks=5, s=1, p=2, d=1),
             tu.conv_block(
                 i=64,
@@ -41,7 +35,8 @@ class EmbeddingTransformer(tu.BaseModule):
 
         self.kernel_shapes = [
             (64, 16, 3, 3),
-            (64, 64, 5, 5),
+            (128, 64, 5, 5),
+            (64, 128, 5, 5),
             (32, 64, 5, 5),
         ]
 
@@ -91,21 +86,25 @@ class EmbeddingTransformer(tu.BaseModule):
 
         precondition_feature_map = self.compute_precondition(
             precondition_frames, )
+
         action_vec = self.action_embedding(actions)
 
-        k1, k2, k3 = tu.extract_tensors(action_vec, self.kernel_shapes)
+        kernels = tu.extract_tensors(action_vec, self.kernel_shapes)
 
-        transformed_frame = tu.batch_conv(precondition_feature_map, k1, p=1)
-        transformed_frame = self.batch_norms[0](transformed_frame)
-        transformed_frame = F.relu(transformed_frame)
-
-        transformed_frame = tu.batch_conv(transformed_frame, k2, p=2)
-        transformed_frame = self.batch_norms[1](transformed_frame)
-        transformed_frame = torch.relu(transformed_frame)
-
-        transformed_frame = tu.batch_conv(transformed_frame, k3, p=2)
-        transformed_frame = self.batch_norms[2](transformed_frame)
-        transformed_frame = torch.tanh(transformed_frame)
+        transformed_frame = precondition_feature_map
+        for i, k in enumerate(kernels):
+            ks = self.kernel_shapes[i]
+            transformed_frame = tu.batch_conv(
+                transformed_frame,
+                k,
+                p=ks[-1] // 2,
+            )
+            # TODO Should we batch-norm?
+            # transformed_frame = self.batch_norms[0](transformed_frame)
+            transformed_frame = F.leaky_relu(
+                transformed_frame,
+                negative_slope=0.3,
+            )
 
         pred_future_frame = self.expand_transformed(transformed_frame)
 
