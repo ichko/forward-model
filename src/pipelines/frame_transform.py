@@ -1,7 +1,7 @@
 from src.models.embedding_transformer import sanity_check, make_model
 from src.data.tuple_generator import get_tuple_data
 from src.utils.trainer import fit
-from src.utils import persist
+from src.utils import persist, add_virtual_display
 from src.loggers.wandb import WAndBLogger
 
 import argparse
@@ -9,18 +9,14 @@ import argparse
 import gym
 import sneks
 
-# CubeCrash-v0
-# snek-rgb-16-v1
-
-# parser = argparse.ArgumentParser('RUN Experiment')
-# parser.add_argument()
+add_virtual_display()
 
 hparams = argparse.Namespace(
-    env_name='snek-rgb-16-v1',
-    # env_name='CubeCrash-v0',
+    # env_name='snek-rgb-16-v1',
+    env_name='CartPole-v1',
     precondition_size=2,
-    dataset_size=50_000,
-    frame_size=(32, 32),
+    dataset_size=5_000,
+    frame_size=(64, 64),
     bs=64,
     log_interval=100,
     lr=0.0005,
