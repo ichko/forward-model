@@ -9,8 +9,6 @@ import argparse
 import gym
 import sneks
 
-add_virtual_display()
-
 hparams = argparse.Namespace(
     # env_name='snek-rgb-16-v1',
     env_name='CartPole-v1',
@@ -55,6 +53,7 @@ def get_data_generator(env, agent=None):
 
 
 def main():
+    add_virtual_display()
     sanity_check()
 
     env = get_env()

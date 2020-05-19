@@ -17,10 +17,9 @@ def persist(func, path, override=False):
 def add_virtual_display():
     # Necessary to display cartpole and other envs headlessly
     # https://stackoverflow.com/a/47968021
-    from pyvirtualdisplay.smartdisplay import SmartDisplay as Display
+    from pyvirtualdisplay.smartdisplay import SmartDisplay
 
-    display = Display(visible=0, size=(1400, 900))
+    display = SmartDisplay(visible=0, size=(1400, 900))
     display.start()
 
-    import os
-    os.environ['DISPLAY']
+    # print(os.environ['DISPLAY'])

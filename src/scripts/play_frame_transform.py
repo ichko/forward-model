@@ -2,6 +2,7 @@
 from src.pipelines.frame_transform import (
     get_env,
     get_model,
+    hparams,
 )
 import src.utils.torch as tu
 
@@ -12,10 +13,9 @@ import cv2
 
 win_name = 'window'
 
+env = get_env()
 
 def main():
-    env = get_env()
-
     model = get_model(env)
     model.preload_weights()
     model = model.eval()
@@ -27,7 +27,7 @@ def main():
 
     while not done:
         frame = env.render('rgb_array')
-        frame = cv2.resize(frame, (32, 32))
+        frame = cv2.resize(frame, hparams.frame_size)
         true_frames.append(frame)
 
         action = env.action_space.sample()
