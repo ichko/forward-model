@@ -1,4 +1,5 @@
 import random
+from collections import deque
 
 import numpy as np
 import cv2
@@ -25,7 +26,7 @@ class RolloutGenerator:
     ):
         ''' Yields batches of episodes - (ep_id, actions, frames) '''
 
-        self.buffer = []
+        self.buffer = deque(maxlen=buffer_size)
         self.episodes_len = []
 
         def get_batch():
@@ -33,7 +34,10 @@ class RolloutGenerator:
             ep_id, actions, frames = [np.array(t) for t in zip(*batch)]
             return ep_id, actions, frames
 
-        for ep_id in range(buffer_size):
+        ep_id = -1
+        while True:
+            ep_id += 1
+
             obs = env.reset()
             done = False
 
@@ -67,5 +71,5 @@ class RolloutGenerator:
 
             self.buffer.append([ep_id, actions, frames])
 
-        while True:
-            yield get_batch()
+            if len(self.buffer) >= buffer_size:
+                yield get_batch()
