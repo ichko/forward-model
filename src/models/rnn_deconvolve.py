@@ -36,13 +36,12 @@ class RNN(tu.BaseModule):
 
         inp = self.precondition_channels
         self.compute_precondition = nn.Sequential(
-            nn.Dropout2d(p=0.2),
-            tu.conv_block(i=inp, o=32, ks=4, s=1, p=1, d=1),
-            tu.conv_block(i=32, o=64, ks=4, s=1, p=1, d=1),
-            nn.Dropout2d(p=0.3),
+            nn.Dropout2d(p=0.4),
+            tu.conv_block(i=inp, o=32, ks=4, s=2, p=1, d=1),
+            tu.conv_block(i=32, o=64, ks=4, s=2, p=1, d=1),
+            nn.Dropout2d(p=0.4),
             tu.conv_block(i=64, o=64, ks=4, s=2, p=1, d=1),
             tu.conv_block(i=64, o=128, ks=4, s=2, p=1, d=1),
-            nn.Dropout2d(p=0.2),
             tu.conv_block(i=128, o=256, ks=4, s=2, p=1, d=1, bn=False),
         )
 
@@ -76,12 +75,12 @@ class RNN(tu.BaseModule):
         self.deconvolve_to_frame = nn.Sequential(
             tu.dense(i=rnn_hidden_size, o=256),
             tu.reshape(-1, 256, 1, 1),
+            nn.Dropout2d(p=0.3),
+            tu.deconv_block(i=256, o=128, ks=5, s=2, p=1, d=1),
+            tu.deconv_block(i=128, o=64, ks=5, s=2, p=1, d=1),
             nn.Dropout2d(p=0.2),
-            tu.deconv_block(i=256, o=128, ks=5, s=1, p=1, d=1),
-            tu.deconv_block(i=128, o=64, ks=6, s=1, p=1, d=1),
-            nn.Dropout2d(p=0.1),
-            tu.deconv_block(i=64, o=32, ks=6, s=2, p=1, d=1),
-            tu.deconv_block(i=32, o=3, ks=5, s=1, p=1, d=1, a=nn.Sigmoid()),
+            tu.deconv_block(i=64, o=32, ks=5, s=2, p=2, d=2),
+            tu.deconv_block(i=32, o=3, ks=4, s=2, p=2, d=1, a=nn.Sigmoid()),
         )
 
     def forward(self, x):
@@ -129,19 +128,35 @@ class RNN(tu.BaseModule):
         )
 
     def optim_step(self, batch):
-        x, y = batch
+        x, (y_true, dones) = batch
 
         self.optim.zero_grad()
         y_pred = self(x)
-        y = torch.FloatTensor(y).to(self.device) / 255.0
-        loss = F.mse_loss(y_pred, y)
+        y_true = torch.FloatTensor(y_true).to(self.device) / 255.0
+        dones = torch.BoolTensor(dones).to(self.device)
+
+        # mask predictions out of sequence
+        # TODO: Make util for that!
+        initial_shape = y_true.shape
+        bs, seq = dones.shape
+        y_pred = torch.where(
+            dones.reshape(bs * seq, -1),
+            torch.tensor(0.0).to(self.device),
+            y_pred.reshape(bs * seq, -1),
+        )
+        y_true = y_true.reshape(bs * seq, -1)
+
+        loss = F.binary_cross_entropy(y_pred, y_true)
+
+        y_true = y_true.reshape(initial_shape)
+        y_pred = y_pred.reshape(initial_shape)
 
         if loss.requires_grad:
             loss.backward()
             self.optim.step()
             self.scheduler.step()
 
-        return loss, {'y': y, 'y_pred': y_pred}
+        return loss, {'y': y_true, 'y_pred': y_pred}
 
 
 def make_model(precondition_size, frame_size, num_actions):
@@ -157,7 +172,7 @@ def make_model(precondition_size, frame_size, num_actions):
 
 def sanity_check():
     num_precondition_frames = 2
-    frame_size = (16, 16)
+    frame_size = (32, 32)
     num_actions = 3
     max_seq_len = 15
     bs = 10
@@ -179,12 +194,14 @@ def sanity_check():
         size=(bs, num_precondition_frames, 3, *frame_size),
     )
     actions = torch.randint(0, num_actions, size=(bs, max_seq_len))
+    dones = torch.rand(bs, max_seq_len) > 0.5
     out_frames = rnn([precondition_frames, actions]).detach().cpu()
 
     print(f'OUT FRAMES SHAPE {out_frames.shape}')
 
     rnn.configure_optim(lr=0.001)
-    loss, _info = rnn.optim_step([[precondition_frames, actions], out_frames])
+    loss, _info = rnn.optim_step(
+        [[precondition_frames, actions], [out_frames, dones]], )
 
     print(f'OPTIM STEP LOSS {loss.item()}')
 

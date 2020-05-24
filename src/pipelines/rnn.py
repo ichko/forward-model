@@ -55,10 +55,11 @@ def get_data_generator(env, agent=None):
         frame_size=hparams.frame_size,
     )
 
-    for _ep_id, actions, frames in gen:
+    for _ep_id, actions, frames, dones in gen:
         x = frames[:, :hparams.precondition_size], \
-            actions[:, hparams.precondition_size:]
-        y = frames[:, hparams.precondition_size:]
+            actions[:, hparams.precondition_size:],
+        y = frames[:, hparams.precondition_size:], \
+            dones[:, hparams.precondition_size:]
 
         yield x, y
 
