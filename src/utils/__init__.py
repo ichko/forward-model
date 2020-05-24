@@ -23,3 +23,11 @@ def add_virtual_display():
     display.start()
 
     # print(os.environ['DISPLAY'])
+
+
+def try_colored_traceback():
+    try:
+        import colored_traceback
+        colored_traceback.add_hook()
+    except ImportError:
+        pass

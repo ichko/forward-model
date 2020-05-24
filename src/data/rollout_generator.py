@@ -20,6 +20,7 @@ class RolloutGenerator:
         env,
         agent,
         bs,
+        min_seq_len,
         max_seq_len,
         buffer_size,
         frame_size,
@@ -31,8 +32,8 @@ class RolloutGenerator:
 
         def get_batch():
             batch = random.sample(self.buffer, bs)
-            ep_id, actions, frames = [np.array(t) for t in zip(*batch)]
-            return ep_id, actions, frames
+            # ep_id, actions, frames, dones
+            return [np.array(t) for t in zip(*batch)]
 
         ep_id = -1
         while True:
@@ -42,6 +43,7 @@ class RolloutGenerator:
             done = False
 
             actions = np.zeros((max_seq_len, *env.action_space.shape))
+            dones = np.ones((max_seq_len, ), dtype=np.bool)
             self.episodes_len.append(0)
 
             frame = env.render('rgb_array')
@@ -53,6 +55,7 @@ class RolloutGenerator:
                 action = agent(obs)
 
                 actions[i] = action
+                dones[i] = done
 
                 frame = env.render('rgb_array')
                 frame = cv2.resize(frame, frame_size)
@@ -69,7 +72,8 @@ class RolloutGenerator:
                 if done or not alive:
                     break
 
-            self.buffer.append([ep_id, actions, frames])
+            if i >= min_seq_len:
+                self.buffer.append([ep_id, actions, frames, dones])
 
             if len(self.buffer) >= buffer_size:
                 yield get_batch()

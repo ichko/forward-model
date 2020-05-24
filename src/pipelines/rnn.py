@@ -1,6 +1,7 @@
 from src.models.rnn_deconvolve import sanity_check, make_model
 from src.data.rollout_generator import RolloutGenerator
 from src.utils.trainer import fit_generator
+from src.utils import add_virtual_display, try_colored_traceback
 from src.loggers.wandb import WAndBLogger
 
 import argparse
@@ -8,23 +9,21 @@ import argparse
 import gym
 import sneks
 
-# CubeCrash-v0
-# snek-rgb-16-v1
-
-# parser = argparse.ArgumentParser('RUN Experiment')
-# parser.add_argument()
-
 hparams = argparse.Namespace(
+    # env_name='CubeCrash-v0',
     env_name='snek-rgb-16-v1',
+    # env_name='CartPole-v1',
+    # env_name='LunarLander-v2',
     precondition_size=2,
-    dataset_size=200_000,
-    frame_size=(16, 16),
+    dataset_size=500_000,
+    frame_size=(32, 32),
     its=1_000_000,
     bs=64,
     log_interval=300,
-    lr=0.001,
+    lr=0.0005,
     device='cuda',
     max_seq_len=32,
+    min_seq_len=16,
 )
 
 
@@ -50,6 +49,7 @@ def get_data_generator(env, agent=None):
         env=env,
         agent=agent,
         bs=hparams.bs,
+        min_seq_len=hparams.min_seq_len,
         max_seq_len=hparams.max_seq_len,
         buffer_size=hparams.dataset_size,
         frame_size=hparams.frame_size,
@@ -64,6 +64,8 @@ def get_data_generator(env, agent=None):
 
 
 def main():
+    try_colored_traceback()
+    add_virtual_display()
     sanity_check()
 
     env = get_env()
