@@ -52,15 +52,15 @@ class RolloutGenerator:
             frames = np.zeros((max_seq_len, 3, *frame_size[::-1]))
 
             for i in range(max_seq_len):
-                action = agent(obs)
-
-                actions[i] = action
-                dones[i] = done
-
                 frame = env.render('rgb_array')
                 frame = cv2.resize(frame, frame_size)
                 frame = np.transpose(frame, (2, 0, 1))
                 frames[i] = frame
+
+                action = agent(obs)
+
+                actions[i] = action
+                dones[i] = done
 
                 obs, _reward, done, _info = env.step(action)
                 self.episodes_len[-1] += 1
@@ -74,6 +74,3 @@ class RolloutGenerator:
 
             if i >= min_seq_len:
                 self.buffer.append([ep_id, actions, frames, dones])
-
-            if len(self.buffer) >= buffer_size:
-                yield get_batch()

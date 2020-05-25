@@ -17,24 +17,23 @@ class EmbeddingTransformer(tu.BaseModule):
 
         inp = self.precondition_channels
         self.compute_precondition = nn.Sequential(
-            nn.Dropout2d(0.3),
+            nn.Dropout2d(0.5),
             tu.conv_block(i=inp, o=64, ks=5, s=1, p=2, d=1),
             tu.conv_block(i=64, o=64, ks=5, s=1, p=2, d=1),
             tu.conv_block(
                 i=64,
-                o=16,
+                o=64,
                 ks=7,
                 s=1,
                 p=3,
                 d=1,
                 bn=False,
-                a=nn.Tanh(),
+                a=None,
             ),
-            # nn.Dropout2d(0.05),
         )
 
         self.kernel_shapes = [
-            (64, 16, 3, 3),
+            (64, 64, 5, 5),
             (128, 64, 5, 5),
             (64, 128, 5, 5),
             (32, 64, 5, 5),
@@ -51,10 +50,9 @@ class EmbeddingTransformer(tu.BaseModule):
         )
 
         self.expand_transformed = nn.Sequential(
+            nn.Dropout2d(0.1),
             tu.deconv_block(i=32, o=64, ks=3, s=1, p=1, d=1),
-            # nn.Dropout2d(0.05),
             tu.deconv_block(i=64, o=32, ks=5, s=1, p=2, d=1),
-            # nn.Dropout2d(0.05),
             tu.deconv_block(
                 i=32,
                 o=3,

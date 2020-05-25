@@ -1,4 +1,4 @@
-from src.models.rnn_deconvolve import sanity_check, make_model
+from src.models.rnn_ae import sanity_check, make_model
 from src.data.rollout_generator import RolloutGenerator
 from src.utils.trainer import fit_generator
 from src.utils import add_virtual_display, try_colored_traceback
@@ -16,7 +16,7 @@ hparams = argparse.Namespace(
     # env_name='LunarLander-v2',
     precondition_size=2,
     dataset_size=500_000,
-    frame_size=(32, 32),
+    frame_size=(16, 16),
     its=1_000_000,
     bs=64,
     log_interval=300,
@@ -56,12 +56,7 @@ def get_data_generator(env, agent=None):
     )
 
     for _ep_id, actions, frames, dones in gen:
-        x = frames[:, :hparams.precondition_size], \
-            actions[:, hparams.precondition_size:],
-        y = frames[:, hparams.precondition_size:], \
-            dones[:, hparams.precondition_size:]
-
-        yield x, y
+        yield actions, frames, dones
 
 
 def main():

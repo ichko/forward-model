@@ -10,11 +10,11 @@ import gym
 import sneks
 
 hparams = argparse.Namespace(
-    # env_name='snek-rgb-16-v1',
-    env_name='CartPole-v1',
+    env_name='snek-rgb-16-v1',
+    # env_name='CartPole-v1',
     precondition_size=2,
-    dataset_size=5_000,
-    frame_size=(64, 64),
+    dataset_size=100000,
+    frame_size=(32, 32),
     bs=64,
     log_interval=100,
     lr=0.0005,
