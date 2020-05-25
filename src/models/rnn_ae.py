@@ -15,33 +15,42 @@ class RNNAutoEncoder(tu.BaseModule):
         num_actions,
         action_embedding_size,
         rnn_hidden_size,
+        precondition_size,
+        frame_encoding_size,
     ):
         super().__init__()
         self.name = 'RNN Auto Encoder'
 
+        self.precondition_size = precondition_size
         self.frame_size = frame_size
         self.num_rnn_layers = num_rnn_layers
 
-        self.encoder = nn.Sequential(
+        self.precondition_encoder = nn.Sequential(
             nn.Flatten(),
-            tu.dense(i=16 * 16 * 3, o=256),
-            tu.dense(i=256, o=128, a=nn.Tanh()),
+            tu.dense(i=16 * 16 * 3 * precondition_size, o=512),
+            tu.dense(i=512, o=rnn_hidden_size * num_rnn_layers),
         )
 
-        self.decoder = nn.Sequential(
-            tu.dense(i=128, o=256),
-            tu.dense(i=256, o=16 * 16 * 3, a=nn.Sigmoid()),
-            tu.reshape(-1, 16, 16, 30),
+        self.frames_encoder = nn.Sequential(
+            nn.Flatten(),
+            tu.dense(i=16 * 16 * 3, o=512),
+            tu.dense(i=512, o=frame_encoding_size, a=nn.Tanh()),
+        )
+
+        self.frames_decoder = nn.Sequential(
+            tu.dense(i=rnn_hidden_size, o=512),
+            tu.dense(i=512, o=16 * 16 * 3, a=nn.Sigmoid()),
+            tu.reshape(-1, 3, 16, 16),
         )
 
         self.rnn = nn.GRU(
-            action_embedding_size,
+            action_embedding_size + frame_encoding_size,
             hidden_size=rnn_hidden_size,
             num_layers=num_rnn_layers,
             batch_first=True,
         )
 
-        self.action_embedding = nn.Embedding(
+        self.action_embeddings = nn.Embedding(
             num_embeddings=num_actions,
             embedding_dim=action_embedding_size,
         )
@@ -49,19 +58,37 @@ class RNNAutoEncoder(tu.BaseModule):
     def forward(self, x):
         """
         x -> (frames, actions)
-            precondition_frames -> [bs, sequence, 3, H, W]
-            actions             -> [bs, sequence]
+            frames  -> [bs, sequence, 3, H, W]
+            actions -> [bs, sequence]
         """
-        frames, actions = x
+        actions, frames = x
 
-        frames = torch.FloatTensor(frames / 255.0).to(self.device)
         actions = torch.LongTensor(actions).to(self.device)
+        frames = torch.FloatTensor(frames / 255.0).to(self.device)
 
-        first_frame = frames[:, 0]
-        first_frame_enc = self.encoder(first_frame_enc)
-        action_enc = self.action_embedding(actions)
+        precondition = frames[:, :self.precondition_size]
+        frames = frames[:, self.precondition_size:]
+        actions = actions[:, self.precondition_size:]
 
-        self.rnn(action_enc, )
+        # This is not necessary for now (we do not convolve)
+        # precondition = precondition.reshape(
+        #     -1,
+        #     precondition_size * 3,
+        #     *self.frame_size[::-1],
+        # )
+
+        precondition_map = self.precondition_encoder(precondition)
+        precondition_map = tu.prepare_rnn_state(
+            precondition_map,
+            self.num_rnn_layers,
+        )
+
+        actions_map = self.action_embeddings(actions)
+        frames_map = tu.time_distribute(self.frames_encoder, frames)
+        action_frame_pair = torch.cat([actions_map, frames_map], dim=-1)
+
+        rnn_out_vectors, _ = self.rnn(action_frame_pair, precondition_map)
+        frames = tu.time_distribute(self.frames_decoder, rnn_out_vectors)
 
         return frames
 
@@ -78,34 +105,41 @@ class RNNAutoEncoder(tu.BaseModule):
         )
 
     def optim_step(self, batch):
-        x, y = batch
+        actions, frames, dones = batch
+
+        dones = torch.BoolTensor(dones).to(
+            self.device, )[:, self.precondition_size:]
 
         self.optim.zero_grad()
-        y_pred = self(x)
-        y = torch.FloatTensor(y).to(self.device) / 255.0
-        loss = F.mse_loss(y_pred, y)
+        y_pred = self([actions, frames])
+        y_pred = tu.mask_sequence(y_pred, ~dones)
+        y_true = torch.FloatTensor(frames / 255.0).to(
+            self.device, )[:, self.precondition_size:]
+
+        loss = F.binary_cross_entropy(y_pred, y_true)
 
         if loss.requires_grad:
             loss.backward()
             self.optim.step()
             self.scheduler.step()
 
-        return loss, {'y': y, 'y_pred': y_pred}
+        return loss, {'y': y_true, 'y_pred': y_pred}
 
 
 def make_model(precondition_size, frame_size, num_actions):
-    return RNN(
-        num_precondition_frames=precondition_size,
+    return RNNAutoEncoder(
+        precondition_size=precondition_size,
         frame_size=frame_size,
         num_rnn_layers=2,
         num_actions=num_actions,
         action_embedding_size=32,
         rnn_hidden_size=128,
+        frame_encoding_size=256,
     )
 
 
 def sanity_check():
-    num_precondition_frames = 1
+    num_precondition_frames = 2
     frame_size = (16, 16)
     num_actions = 3
     max_seq_len = 15
@@ -118,22 +152,20 @@ def sanity_check():
     ).to('cuda')
 
     print(f'RNN NUM PARAMS {rnn.count_parameters():08,}')
-    print(
-        f'PRECONDITION FEATURE MAP {rnn.precondition_out} [{rnn.flat_precondition_size}]'
-    )
 
-    precondition_frames = torch.randint(
+    frames = torch.randint(
         0,
         255,
-        size=(bs, num_precondition_frames, 3, *frame_size),
+        size=(bs, max_seq_len, 3, *frame_size),
     )
     actions = torch.randint(0, num_actions, size=(bs, max_seq_len))
-    out_frames = rnn([precondition_frames, actions]).detach().cpu()
+    out_frames = rnn([actions, frames]).detach().cpu()
+    dones = torch.rand(bs, max_seq_len) > 0.5
 
     print(f'OUT FRAMES SHAPE {out_frames.shape}')
 
     rnn.configure_optim(lr=0.001)
-    loss, _info = rnn.optim_step([[precondition_frames, actions], out_frames])
+    loss, _info = rnn.optim_step([actions, frames, dones])
 
     print(f'OPTIM STEP LOSS {loss.item()}')
 
