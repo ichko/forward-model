@@ -33,6 +33,7 @@ class RNNAutoEncoder(tu.BaseModule):
 
         self.frames_encoder = nn.Sequential(
             nn.Flatten(),
+            nn.Dropout(0.5),
             tu.dense(i=16 * 16 * 3, o=512),
             tu.dense(i=512, o=frame_encoding_size, a=nn.Tanh()),
         )
@@ -55,12 +56,7 @@ class RNNAutoEncoder(tu.BaseModule):
             embedding_dim=action_embedding_size,
         )
 
-    def forward(self, x):
-        """
-        x -> (frames, actions)
-            frames  -> [bs, sequence, 3, H, W]
-            actions -> [bs, sequence]
-        """
+    def _forward(self, x):
         actions, frames = x
 
         actions = torch.LongTensor(actions).to(self.device)
@@ -91,6 +87,29 @@ class RNNAutoEncoder(tu.BaseModule):
         frames = tu.time_distribute(self.frames_decoder, rnn_out_vectors)
 
         return frames
+
+    def forward(self, x):
+        """
+        x -> (frames, actions)
+            frames  -> [bs, sequence, 3, H, W]
+            actions -> [bs, sequence]
+        """
+        if not self.training:
+            return self.rollout(x)
+
+        return self._forward(x)
+
+    def rollout(self, x):
+        """Recursive feeding of self generated frames"""
+        actions, frames = x
+        frames = torch.FloatTensor(frames).to(self.device)
+        seq_len = frames.size(1)
+
+        for i in range(seq_len - self.precondition_size):
+            pred_frames = self._forward([actions, frames])
+            frames[:, i + self.precondition_size] = pred_frames[:, i] * 255
+
+        return frames[:, self.precondition_size:]
 
     def configure_optim(self, lr):
         # LR should be 1. The actual LR comes from the scheduler.
