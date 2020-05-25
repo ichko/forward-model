@@ -151,12 +151,40 @@ def extract_tensors(vec, tensor_shapes):
     return tensors
 
 
-def time_distribute(input, module):
+def mask_sequence(tensor, mask):
+    initial_shape = tensor.shape
+    bs, seq = mask.shape
+    masked = torch.where(
+        mask.reshape(bs * seq, -1),
+        tensor.reshape(bs * seq, -1),
+        torch.tensor(0.0).to(tensor.device),
+    )
+
+    return masked.reshape(initial_shape)
+
+
+def prepare_rnn_state(state, num_rnn_layers):
     """
+    RNN cells expect the initial state
+    in the shape -> [rnn_num_layers, bs, rnn_state_size]
+
+    In this case rnn_state_size = state // rnn_num_layers.
+    The state is distributed among the layers
+
+    state          -> [bs, state_size]
+    rnn_num_layers -> int
+    """
+    return torch.stack(state.chunk(num_rnn_layers, dim=1), dim=0)
+
+
+def time_distribute(module, input):
+    """
+    Distribute execution of module over batched sequential input tensor.
+    This is done in the batch dimension to facilitate parallel execution.
+
     input  -> [bs, seq, *x*]
     module -> something that takes *x*
     return -> [bs, seq, module(x)]
-    This is done in the batch dimension to facilitate parallel execution.
     """
     bs = input.size(0)
     seq_len = input.size(1)
@@ -166,3 +194,12 @@ def time_distribute(input, module):
     out = out.reshape(bs, seq_len, *out.shape[1:])
 
     return out
+
+
+if __name__ == '__main__':
+    # Sanity check mask_sequence
+    tensor = torch.rand(2, 3, 4)
+    mask = torch.rand(2, 3) > 0.5
+    masked = mask_sequence(tensor, mask)
+    print(mask)
+    print(masked)
