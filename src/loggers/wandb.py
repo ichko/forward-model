@@ -1,4 +1,9 @@
+import os
 import wandb
+from src.utils import IS_DEBUG
+
+if IS_DEBUG:
+    os.environ['WANDB_MODE'] = 'dryrun'
 
 
 class WAndBLogger:

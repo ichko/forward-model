@@ -1,5 +1,8 @@
 import os
 import pickle
+import sys
+
+IS_DEBUG = '--debug' in sys.argv
 
 
 def persist(func, path, override=False):
