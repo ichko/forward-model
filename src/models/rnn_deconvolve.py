@@ -32,6 +32,7 @@ class RNN(tu.BaseModule):
 
         self.frame_size = frame_size
         self.precondition_channels = num_precondition_frames * 3
+        self.num_precondition_frames = num_precondition_frames
         self.num_rnn_layers = num_rnn_layers
 
         inp = self.precondition_channels
@@ -100,11 +101,11 @@ class RNN(tu.BaseModule):
             actions             -> [bs, sequence]
         return -> future frame
         """
-        precondition_frames, actions = x
-        precondition_frames = torch.FloatTensor(precondition_frames / 255.0) \
-            .to(self.device)
+        actions, precondition_frames = x
 
         actions = torch.LongTensor(actions).to(self.device)
+        precondition_frames = torch.FloatTensor(precondition_frames / 255.0) \
+            .to(self.device)
 
         precondition_frames = precondition_frames.reshape(
             -1,
@@ -125,6 +126,30 @@ class RNN(tu.BaseModule):
 
         return frames
 
+    def optim_step(self, batch):
+        actions, frames, dones = batch
+
+        precondition = frames[:, :self.num_precondition_frames]
+        actions = actions[:, self.num_precondition_frames:]
+
+        y_true = torch.FloatTensor(frames / 255.0).to(
+            self.device, )[:, self.num_precondition_frames:]
+        dones = torch.BoolTensor(dones).to(
+            self.device, )[:, self.num_precondition_frames:]
+
+        self.optim.zero_grad()
+        y_pred = self([actions, precondition])
+        y_pred = tu.mask_sequence(y_pred, ~dones)
+
+        loss = F.binary_cross_entropy(y_pred, y_true)
+
+        if loss.requires_grad:
+            loss.backward()
+            self.optim.step()
+            self.scheduler.step()
+
+        return loss, {'y': y_true, 'y_pred': y_pred}
+
     def configure_optim(self, lr):
         # LR should be 1. The actual LR comes from the scheduler.
         self.optim = torch.optim.Adam(self.parameters(), lr=1)
@@ -136,24 +161,6 @@ class RNN(tu.BaseModule):
             self.optim,
             lr_lambda=lr_lambda,
         )
-
-    def optim_step(self, batch):
-        x, (y_true, dones) = batch
-        y_true = torch.FloatTensor(y_true).to(self.device) / 255.0
-        dones = torch.BoolTensor(dones).to(self.device)
-
-        self.optim.zero_grad()
-        y_pred = self(x)
-        y_pred = tu.mask_sequence(y_pred, ~dones)
-
-        loss = F.binary_cross_entropy(y_pred, y_true)
-
-        if loss.requires_grad:
-            loss.backward()
-            self.optim.step()
-            self.scheduler.step()
-
-        return loss, {'y': y_true, 'y_pred': y_pred}
 
 
 def make_model(precondition_size, frame_size, num_actions):
@@ -192,13 +199,12 @@ def sanity_check():
     )
     actions = torch.randint(0, num_actions, size=(bs, max_seq_len))
     dones = torch.rand(bs, max_seq_len) > 0.5
-    out_frames = rnn([precondition_frames, actions]).detach().cpu()
+    out_frames = rnn([actions, precondition_frames]).detach().cpu()
 
     print(f'OUT FRAMES SHAPE {out_frames.shape}')
 
     rnn.configure_optim(lr=0.001)
-    loss, _info = rnn.optim_step(
-        [[precondition_frames, actions], [out_frames, dones]], )
+    loss, _info = rnn.optim_step([actions, out_frames, dones])
 
     print(f'OPTIM STEP LOSS {loss.item()}')
 
