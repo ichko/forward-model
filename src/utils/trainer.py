@@ -70,12 +70,3 @@ def fit(model, data, epochs, logger, log_interval):
 
         # End of epoch
         model.scheduler.step()
-
-        # Log videos
-        # vid_paths = []
-        # for i in range(2):
-        #     vid_path = f'./.videos/vid_epoch_{e_id:04}_{hparams.env_name}_{i}.webm'
-        #     utils.produce_video(vid_path, model, ENV, haprams)
-        #     vid_paths.append(vid_path)
-
-        # wandb.log({'example video': [wandb.Video(v) for v in vid_paths]})

@@ -33,7 +33,7 @@ class RNNAutoEncoder(tu.BaseModule):
 
         self.frames_encoder = nn.Sequential(
             nn.Flatten(),
-            nn.Dropout(0.5),
+            nn.Dropout(0.2),
             tu.dense(i=16 * 16 * 3, o=512),
             tu.dense(i=512, o=frame_encoding_size, a=nn.Tanh()),
         )
@@ -65,13 +65,6 @@ class RNNAutoEncoder(tu.BaseModule):
         precondition = frames[:, :self.precondition_size]
         frames = frames[:, self.precondition_size:]
         actions = actions[:, self.precondition_size:]
-
-        # This is not necessary for now (we do not convolve)
-        # precondition = precondition.reshape(
-        #     -1,
-        #     precondition_size * 3,
-        #     *self.frame_size[::-1],
-        # )
 
         precondition_map = self.precondition_encoder(precondition)
         precondition_map = tu.prepare_rnn_state(
@@ -111,18 +104,6 @@ class RNNAutoEncoder(tu.BaseModule):
 
         return frames[:, self.precondition_size:]
 
-    def configure_optim(self, lr):
-        # LR should be 1. The actual LR comes from the scheduler.
-        self.optim = torch.optim.Adam(self.parameters(), lr=1)
-
-        def lr_lambda(it):
-            return lr / (it // 5000 + 1)
-
-        self.scheduler = torch.optim.lr_scheduler.LambdaLR(
-            self.optim,
-            lr_lambda=lr_lambda,
-        )
-
     def optim_step(self, batch):
         actions, frames, dones = batch
 
@@ -143,6 +124,18 @@ class RNNAutoEncoder(tu.BaseModule):
             self.scheduler.step()
 
         return loss, {'y': y_true, 'y_pred': y_pred}
+
+    def configure_optim(self, lr):
+        # LR should be 1. The actual LR comes from the scheduler.
+        self.optim = torch.optim.Adam(self.parameters(), lr=1)
+
+        def lr_lambda(it):
+            return lr / (it // 10000 + 1)
+
+        self.scheduler = torch.optim.lr_scheduler.LambdaLR(
+            self.optim,
+            lr_lambda=lr_lambda,
+        )
 
 
 def make_model(precondition_size, frame_size, num_actions):

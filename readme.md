@@ -4,6 +4,11 @@ Experiments and models for my masters thesis on learning environment dynamics fr
 
 ## Notes and tasks
 
+- Profiling code
+
+  - `pip install profiling`
+  - `profiling live-profile -m src.pipelines.rnn -- --debug`
+
 - General stuff
 
   - [ ] Mask out empty (padded) frames after rollout has finished. [See here.](https://www.kdnuggets.com/2018/06/taming-lstms-variable-sized-mini-batches-pytorch.html)
