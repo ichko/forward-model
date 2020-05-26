@@ -31,18 +31,20 @@ class RNNAutoEncoder(tu.BaseModule):
             tu.dense(i=512, o=rnn_hidden_size * num_rnn_layers),
         )
 
-        self.frames_encoder = nn.Sequential(
+        self.unit_encoder = nn.Sequential(
             nn.Flatten(),
             nn.Dropout(0.2),
             tu.dense(i=16 * 16 * 3, o=512),
             tu.dense(i=512, o=frame_encoding_size, a=nn.Tanh()),
         )
+        self.frames_encoder = tu.time_distribute_31D(self.unit_encoder)
 
-        self.frames_decoder = nn.Sequential(
+        self.unit_decoder = nn.Sequential(
             tu.dense(i=rnn_hidden_size, o=512),
             tu.dense(i=512, o=16 * 16 * 3, a=nn.Sigmoid()),
             tu.reshape(-1, 3, 16, 16),
         )
+        self.frames_decoder = tu.time_distribute_13D(self.unit_decoder)
 
         self.rnn = nn.GRU(
             action_embedding_size + frame_encoding_size,
@@ -69,15 +71,15 @@ class RNNAutoEncoder(tu.BaseModule):
         precondition_map = self.precondition_encoder(precondition)
         precondition_map = tu.prepare_rnn_state(
             precondition_map,
-            self.num_rnn_layers,
+            torch.tensor(self.num_rnn_layers),
         )
 
         actions_map = self.action_embeddings(actions)
-        frames_map = tu.time_distribute(self.frames_encoder, frames)
+        frames_map = self.frames_encoder(frames)
         action_frame_pair = torch.cat([actions_map, frames_map], dim=-1)
 
         rnn_out_vectors, _ = self.rnn(action_frame_pair, precondition_map)
-        frames = tu.time_distribute(self.frames_decoder, rnn_out_vectors)
+        frames = self.frames_decoder(rnn_out_vectors)
 
         return frames
 
@@ -130,7 +132,7 @@ class RNNAutoEncoder(tu.BaseModule):
         self.optim = torch.optim.Adam(self.parameters(), lr=1)
 
         def lr_lambda(it):
-            return lr / (it // 10000 + 1)
+            return lr / (it // 20000 + 1)
 
         self.scheduler = torch.optim.lr_scheduler.LambdaLR(
             self.optim,
@@ -144,8 +146,8 @@ def make_model(precondition_size, frame_size, num_actions):
         frame_size=frame_size,
         num_rnn_layers=2,
         num_actions=num_actions,
-        action_embedding_size=32,
-        rnn_hidden_size=128,
+        action_embedding_size=64,
+        rnn_hidden_size=256,
         frame_encoding_size=256,
     )
 

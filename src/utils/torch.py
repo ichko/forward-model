@@ -151,18 +151,20 @@ def extract_tensors(vec, tensor_shapes):
     return tensors
 
 
+@torch.jit.script
 def mask_sequence(tensor, mask):
     initial_shape = tensor.shape
     bs, seq = mask.shape
     masked = torch.where(
         mask.reshape(bs * seq, -1),
         tensor.reshape(bs * seq, -1),
-        torch.tensor(0.0).to(tensor.device),
+        torch.tensor(0, dtype=torch.float32).to(tensor.device),
     )
 
     return masked.reshape(initial_shape)
 
 
+@torch.jit.script
 def prepare_rnn_state(state, num_rnn_layers):
     """
     RNN cells expect the initial state
@@ -194,6 +196,34 @@ def time_distribute(module, input):
     out = out.reshape(bs, seq_len, *out.shape[1:])
 
     return out
+
+
+def time_distribute_13D(module):
+    class Distributed(nn.Module):
+        def forward(self, input):
+            bs, seq_len, s = [input.size(i) for i in range(3)]
+            input = input.reshape(-1, s)
+            out = module(input)
+            return out.reshape(
+                bs,
+                seq_len,
+                out.size(1),
+                out.size(2),
+                out.size(3),
+            )
+
+    return torch.jit.script(Distributed())
+
+
+def time_distribute_31D(module):
+    class Distributed(nn.Module):
+        def forward(self, input):
+            bs, seq_len, c, h, w = [input.size(i) for i in range(5)]
+            input = input.reshape(-1, c, h, w)
+            out = module(input)
+            return out.reshape(bs, seq_len, out.size(1))
+
+    return torch.jit.script(Distributed())
 
 
 if __name__ == '__main__':

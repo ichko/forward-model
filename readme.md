@@ -4,14 +4,14 @@ Experiments and models for my masters thesis on learning environment dynamics fr
 
 ## Notes and tasks
 
-- Profiling code
+- [Profiling code](https://toucantoco.com/en/tech-blog/tech/python-performance-optimization)
 
   - `pip install profiling`
   - `profiling live-profile -m src.pipelines.rnn -- --debug`
 
 - General stuff
 
-  - [ ] Mask out empty (padded) frames after rollout has finished. [See here.](https://www.kdnuggets.com/2018/06/taming-lstms-variable-sized-mini-batches-pytorch.html)
+  - [x] Mask out empty (padded) frames after rollout has finished. [See here.](https://www.kdnuggets.com/2018/06/taming-lstms-variable-sized-mini-batches-pytorch.html)
   - [ ] Label smoothing. Do I actually want that?
 
 - Models
@@ -20,4 +20,4 @@ Experiments and models for my masters thesis on learning environment dynamics fr
     - Instead of compressing the state like the RNN does
     - Action + Precondition (last few frames) -> transformation vector T
     - Use T to transform the current frame to the future frame
-    - [ ] Play rollout of frame transformations - results in wandb look promising
+    - [x] Play rollout of frame transformations - results in wandb look promising
