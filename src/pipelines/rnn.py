@@ -1,7 +1,7 @@
 from src.models.rnn_ae import sanity_check, make_model
 from src.data.rollout_generator import RolloutGenerator
 from src.utils.trainer import fit_generator
-from src.utils import add_virtual_display, try_colored_traceback
+from src.utils import add_virtual_display
 from src.loggers.wandb import WAndBLogger
 
 import argparse
@@ -20,7 +20,7 @@ hparams = argparse.Namespace(
     its=1_000_000,
     bs=64,
     log_interval=300,
-    lr=0.0005,
+    lr=0.001,
     device='cuda',
     max_seq_len=32,
     min_seq_len=16,
@@ -60,7 +60,6 @@ def get_data_generator(env, agent=None):
 
 
 def main():
-    try_colored_traceback()
     add_virtual_display()
     sanity_check()
 

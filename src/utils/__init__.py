@@ -34,3 +34,6 @@ def try_colored_traceback():
         colored_traceback.add_hook()
     except ImportError:
         pass
+
+
+try_colored_traceback()
