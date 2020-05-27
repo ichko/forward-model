@@ -33,7 +33,7 @@ class RNNAutoEncoder(tu.BaseModule):
 
         self.unit_encoder = nn.Sequential(
             nn.Flatten(),
-            nn.Dropout(0.2),
+            nn.Dropout(0.4),
             tu.dense(i=16 * 16 * 3, o=512),
             tu.dense(i=512, o=frame_encoding_size, a=nn.Tanh()),
         )
@@ -104,7 +104,7 @@ class RNNAutoEncoder(tu.BaseModule):
             pred_frames = self._forward([actions, frames])
             frames[:, i + self.precondition_size] = pred_frames[:, i] * 255
 
-        return frames[:, self.precondition_size:]
+        return frames[:, self.precondition_size:] / 255.0
 
     def optim_step(self, batch):
         actions, frames, dones = batch
