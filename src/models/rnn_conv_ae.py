@@ -1,0 +1,196 @@
+import src.utils.T as tu
+
+import numpy as np
+
+import torch as T
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+class Model(tu.BaseModule):
+    def __init__(
+        self,
+        frame_size,
+        num_rnn_layers,
+        num_actions,
+        action_embedding_size,
+        rnn_hidden_size,
+        precondition_size,
+        frame_encoding_size,
+    ):
+        super().__init__()
+        self.name = 'RNN Conv Auto Encoder'
+
+        self.precondition_size = precondition_size
+        self.precondition_channels = self.precondition_size * 3
+        self.frame_size = frame_size
+        self.num_rnn_layers = num_rnn_layers
+
+        self.precondition_encoder = nn.Sequential(
+            tu.conv_encoder(sizes=(6, 32, 64, 128, 512)),
+            tu.reshape(-1, 512),
+            tu.dense(i=512, o=rnn_hidden_size * num_rnn_layers),
+            nn.Tanh(),
+        )
+
+        self.frames_encoder = tu.time_distribute(
+            nn.Sequential(
+                tu.conv_encoder(sizes=(3, 32, 64, 128, 256)),
+                tu.reshape(-1, 256),
+                tu.dense(i=256, o=frame_encoding_size),
+                nn.Tanh(),
+            ))
+
+        self.frames_decoder = tu.time_distribute(
+            nn.Sequential(
+                tu.dense(i=rnn_hidden_size, o=256),
+                tu.reshape(-1, 256, 1, 1),
+                tu.conv_decoder(sizes=(256, 128, 64, 32, 3)),
+                nn.Sigmoid(),
+            ))
+
+        self.rnn = nn.GRU(
+            action_embedding_size + frame_encoding_size,
+            hidden_size=rnn_hidden_size,
+            num_layers=num_rnn_layers,
+            batch_first=True,
+        )
+
+        self.action_embeddings = nn.Embedding(
+            num_embeddings=num_actions,
+            embedding_dim=action_embedding_size,
+        )
+
+    def _forward(self, x):
+        actions, frames = x
+
+        actions = T.LongTensor(actions).to(self.device)
+        frames = T.FloatTensor(frames / 255.0).to(self.device)
+
+        precondition = frames[:, :self.precondition_size]
+        precondition = precondition.view(
+            -1,
+            self.precondition_channels,
+            *self.frame_size,
+        )
+        frames = frames[:, self.precondition_size:]
+        actions = actions[:, self.precondition_size:]
+
+        precondition_map = self.precondition_encoder(precondition)
+        precondition_map = tu.prepare_rnn_state(
+            precondition_map,
+            T.tensor(self.num_rnn_layers),
+        )
+
+        actions_map = self.action_embeddings(actions)
+        frames_map = self.frames_encoder(frames)
+        action_frame_pair = T.cat([actions_map, frames_map], dim=-1)
+
+        rnn_out_vectors, _ = self.rnn(action_frame_pair, precondition_map)
+        frames = self.frames_decoder(rnn_out_vectors)
+
+        return frames
+
+    def forward(self, x):
+        """
+        x -> (frames, actions)
+            frames  -> [bs, sequence, 3, H, W]
+            actions -> [bs, sequence]
+        """
+        if not self.training:
+            return self.rollout(x)
+
+        return self._forward(x)
+
+    def rollout(self, x):
+        """Recursive feeding of self generated frames"""
+        actions, frames = x
+        frames = T.FloatTensor(frames).to(self.device)
+        seq_len = frames.size(1)
+
+        for i in range(seq_len - self.precondition_size):
+            pred_frames = self._forward([actions, frames])
+            frames[:, i + self.precondition_size] = pred_frames[:, i] * 255
+
+        return frames[:, self.precondition_size:] / 255.0
+
+    def optim_step(self, batch):
+        actions, frames, dones = batch
+
+        dones = T.BoolTensor(dones).to(self.device, )[:,
+                                                      self.precondition_size:]
+
+        y_pred = self([actions, frames])
+        y_pred = tu.mask_sequence(y_pred, ~dones)
+        y_true = T.FloatTensor(frames / 255.0).to(
+            self.device, )[:, self.precondition_size:]
+
+        loss = F.binary_cross_entropy(y_pred, y_true)
+
+        if loss.requires_grad:
+            self.optim.zero_grad()
+            loss.backward()
+            self.optim.step()
+            self.scheduler.step()
+
+        return loss, {'y': y_true, 'y_pred': y_pred}
+
+    def configure_optim(self, lr):
+        # LR should be 1. The actual LR comes from the scheduler.
+        self.optim = T.optim.Adam(self.parameters(), lr=1)
+
+        def lr_lambda(it):
+            return lr / (it // 20000 + 1)
+
+        self.scheduler = T.optim.lr_scheduler.LambdaLR(
+            self.optim,
+            lr_lambda=lr_lambda,
+        )
+
+
+def make_model(precondition_size, frame_size, num_actions):
+    return Model(
+        precondition_size=precondition_size,
+        frame_size=frame_size,
+        num_rnn_layers=2,
+        num_actions=num_actions,
+        action_embedding_size=64,
+        rnn_hidden_size=256,
+        frame_encoding_size=256,
+    )
+
+
+def sanity_check():
+    num_precondition_frames = 2
+    frame_size = (16, 16)
+    num_actions = 3
+    max_seq_len = 15
+    bs = 10
+
+    rnn = make_model(
+        num_precondition_frames,
+        frame_size,
+        num_actions,
+    ).to('cuda')
+
+    print(f'RNN NUM PARAMS {rnn.count_parameters():08,}')
+
+    frames = T.randint(
+        0,
+        255,
+        size=(bs, max_seq_len, 3, *frame_size),
+    )
+    actions = T.randint(0, num_actions, size=(bs, max_seq_len))
+    out_frames = rnn([actions, frames]).detach().cpu()
+    dones = T.rand(bs, max_seq_len) > 0.5
+
+    print(f'OUT FRAMES SHAPE {out_frames.shape}')
+
+    rnn.configure_optim(lr=0.001)
+    loss, _info = rnn.optim_step([actions, frames, dones])
+
+    print(f'OPTIM STEP LOSS {loss.item()}')
+
+
+if __name__ == '__main__':
+    sanity_check()
