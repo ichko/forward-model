@@ -8,7 +8,7 @@ import torch.nn.functional as F
 
 
 def get_activation():
-    LEAKY_SLOPE = 0.5
+    LEAKY_SLOPE = 0.2
     return nn.LeakyReLU(LEAKY_SLOPE, inplace=True)
 
 
@@ -44,11 +44,12 @@ class BaseModule(nn.Module):
     def persist(self):
         torch.save(self.state_dict(), self.path)
 
-    def save(self):
-        torch.save(self, f'{self.path}_whole.h5')
-
     def preload_weights(self):
         self.load_state_dict(torch.load(self.path))
+
+    def save(self, path=None):
+        path = path if self.path is None else path
+        torch.save(self, f'{self.path}_whole.h5')
 
     def can_be_preloaded(self):
         return os.path.isfile(self.path)
@@ -87,7 +88,7 @@ def dense(i, o, a=get_activation()):
 def reshape(*shape):
     class Reshaper(nn.Module):
         def forward(self, x):
-            return x.reshape(*shape)
+            return x.reshape(shape)
 
     return Reshaper()
 
@@ -128,6 +129,24 @@ def deconv_block(i, o, ks, s, p, a=get_activation(), d=1, bn=True):
     if a is not None: block.append(a)
 
     return nn.Sequential(*block)
+
+
+def conv_encoder(depth, sizes, ks=4, a=get_activation()):
+    layers = [
+        conv_block(
+            i=sizes[l],
+            o=sizes[l + 1],
+            ks=ks,
+            s=2,
+            p=ks // 2 - 1,
+            a=(None if l == len(sizes) - 2 else a),
+            d=1,
+            # batch norm everywhere except the last layer
+            bn=(l != len(sizes) - 2),
+        ) for l in range(len(sizes) - 1)
+    ]
+
+    return nn.Sequential(*layers)
 
 
 def compute_conv_output(net, frame_shape):
