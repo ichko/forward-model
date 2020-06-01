@@ -27,21 +27,26 @@ class RNNAutoEncoder(tu.BaseModule):
 
         self.precondition_encoder = nn.Sequential(
             nn.Flatten(),
-            tu.dense(i=16 * 16 * 3 * precondition_size, o=512),
-            tu.dense(i=512, o=rnn_hidden_size * num_rnn_layers),
+            tu.dense(i=16 * 16 * 3 * precondition_size, o=256),
+            tu.dense(i=256, o=256),
+            tu.dense(i=256, o=rnn_hidden_size * num_rnn_layers, a=nn.Tanh()),
         )
 
         self.unit_encoder = nn.Sequential(
             nn.Flatten(),
             nn.Dropout(0.4),
-            tu.dense(i=16 * 16 * 3, o=512),
-            tu.dense(i=512, o=frame_encoding_size, a=nn.Tanh()),
+            tu.dense(i=16 * 16 * 3, o=128),
+            tu.dense(i=128, o=128),
+            tu.dense(i=128, o=128),
+            tu.dense(i=128, o=frame_encoding_size, a=nn.Tanh()),
         )
         self.frames_encoder = tu.time_distribute_31D(self.unit_encoder)
 
         self.unit_decoder = nn.Sequential(
-            tu.dense(i=rnn_hidden_size, o=512),
-            tu.dense(i=512, o=16 * 16 * 3, a=nn.Sigmoid()),
+            tu.dense(i=rnn_hidden_size, o=128),
+            tu.dense(i=128, o=128),
+            tu.dense(i=128, o=128),
+            tu.dense(i=128, o=16 * 16 * 3, a=nn.Sigmoid()),
             tu.reshape(-1, 3, 16, 16),
         )
         self.frames_decoder = tu.time_distribute_13D(self.unit_decoder)
@@ -112,7 +117,6 @@ class RNNAutoEncoder(tu.BaseModule):
         dones = torch.BoolTensor(dones).to(
             self.device, )[:, self.precondition_size:]
 
-        self.optim.zero_grad()
         y_pred = self([actions, frames])
         y_pred = tu.mask_sequence(y_pred, ~dones)
         y_true = torch.FloatTensor(frames / 255.0).to(
@@ -121,6 +125,7 @@ class RNNAutoEncoder(tu.BaseModule):
         loss = F.binary_cross_entropy(y_pred, y_true)
 
         if loss.requires_grad:
+            self.optim.zero_grad()
             loss.backward()
             self.optim.step()
             self.scheduler.step()

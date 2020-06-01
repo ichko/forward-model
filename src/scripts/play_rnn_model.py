@@ -43,7 +43,7 @@ def main():
     cv2.resizeWindow(win_name, 900, 300)
 
     for frame in grid:
-        time.sleep(1 / 10)
+        time.sleep(1 / 5)
         cv2.imshow(win_name, frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break

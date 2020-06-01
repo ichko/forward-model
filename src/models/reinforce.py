@@ -1,10 +1,13 @@
+import sys
+
 import src.utils.torch as tu
 
 import numpy as np
-
 import torch as T
 import torch.nn as nn
 import torch.nn.functional as F
+
+SHOULD_RENDER = '--render' in sys.argv
 
 
 # SRC - <https://github.com/philtabor/Actor-Critic-Methods-Paper-To-Code/blob/master/Reinforce/reinforce_torch.py>
@@ -14,15 +17,15 @@ class Policy(tu.BaseModule):
         self.name = 'Policy Network (Reinforce)'
 
         self.net = nn.Sequential(
-            tu.dense(i=obs_size, o=128, a=nn.ReLU()),
-            tu.dense(i=128, o=128, a=nn.ReLU()),
-            tu.dense(i=128, o=num_actions, a=None),
+            tu.conv_encoder(depth=4, sizes=(3, 32, 64, 128, 512)),
+            tu.reshape(-1, 512),
+            nn.ReLU(inplace=True),
+            tu.dense(i=512, o=num_actions, a=nn.Softmax(dim=1)),
         )
 
     def forward(self, obs):
         obs = T.Tensor(obs).to(self.device)
-        action_logits = F.softmax(self.net(obs))
-        return action_logits
+        return self.net(obs)
 
     def configure_optim(self, lr):
         self.optim = T.optim.Adam(self.parameters(), lr=lr)
@@ -74,26 +77,31 @@ class Agent(tu.BaseModule):
 
         return action.item(), log_probs
 
-    def play_episode(self, env):
+    def play_episode(self, env, max_len):
         obs = env.reset()
         done = False
         score = 0
         action_memory = []
         reward_memory = []
+        step = 0
 
-        while not done:
+        while not done and step <= max_len:
+            step += 1
+
             action, log_prob = self(obs)
             action_memory.append(log_prob)
 
-            # env.render()
+            if SHOULD_RENDER:
+                env.render()
+
             obs, reward, done, _info = env.step(action)
             reward_memory.append(reward)
             score += reward
 
         return score, action_memory, reward_memory
 
-    def optim_step(self, env):
-        score, action_memory, reward_memory = self.play_episode(env)
+    def optim_step(self, env, max_len):
+        score, action_memory, reward_memory = self.play_episode(env, max_len)
         loss, _ = self.policy.optim_step(
             self.gamma,
             action_memory,
@@ -112,9 +120,11 @@ def make_model(obs_size, num_actions):
 
 
 def sanity_check():
-    import gym
+    from src.utils import make_preprocessed_env
+    import sneks
 
-    env = gym.make('LunarLander-v2')
+    # env = gym.make('LunarLander-v2')
+    env = make_preprocessed_env('snek-rgb-16-v1')
 
     obs_size = 8
     num_actions = 4
@@ -123,7 +133,7 @@ def sanity_check():
         obs_size=obs_size,
         num_actions=num_actions,
     ).to('cuda')
-    model.policy.configure_optim(lr=0.0005)
+    model.policy.configure_optim(lr=0.001)
     model.make_persisted(f'./.models/{model.name}.hdf5')
 
     print(f'NUM PARAMS {model.count_parameters():08,}')
@@ -134,11 +144,11 @@ def sanity_check():
     except Exception as _e:
         print('>> could not preload')
 
-    n_episodes = 2000
+    n_episodes = 20000
     for i in range(n_episodes):
-        loss, info = model.optim_step(env)
+        loss, info = model.optim_step(env, 1024)
         score = info['score']
-        print(f'[EP {i:04}] - LOSS {loss:.5f} - SCORE {score:.2f}')
+        print(f'[EP {i:05}] - LOSS {loss:.5f} - SCORE {score:.2f}')
         model.persist()
 
 
