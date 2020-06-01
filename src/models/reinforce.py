@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+# SRC - <https://github.com/philtabor/Actor-Critic-Methods-Paper-To-Code/blob/master/Reinforce/reinforce_torch.py>
 class Policy(tu.BaseModule):
     def __init__(self, obs_size, num_actions):
         super().__init__()
@@ -19,7 +20,7 @@ class Policy(tu.BaseModule):
         )
 
     def forward(self, obs):
-        obs = T.FloatTensor(obs).to(self.device)
+        obs = T.Tensor(obs).to(self.device)
         action_logits = F.softmax(self.net(obs))
         return action_logits
 
@@ -38,10 +39,10 @@ class Policy(tu.BaseModule):
 
         # action_memory = T.tensor(action_memory, dtype=T.float).to(self.device)
 
-        # mean = G.mean()
-        # std = G.std()
-        # std = 1 if std == 0 else std
-        # G = (G - mean) / std
+        mean = G.mean()
+        std = G.std()
+        std = 1 if std == 0 else std
+        G = (G - mean) / std
 
         # loss = T.sum(-G * action_memory)
 
@@ -84,7 +85,7 @@ class Agent(tu.BaseModule):
             action, log_prob = self(obs)
             action_memory.append(log_prob)
 
-            env.render()
+            # env.render()
             obs, reward, done, _info = env.step(action)
             reward_memory.append(reward)
             score += reward
