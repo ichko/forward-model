@@ -1,4 +1,4 @@
-from src.models.rnn_ae import sanity_check, make_model
+from src.models.rnn_conv_ae import sanity_check, make_model
 from src.data.rollout_generator import RolloutGenerator
 from src.utils.trainer import fit_generator
 from src.utils import add_virtual_display

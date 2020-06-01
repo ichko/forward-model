@@ -2,7 +2,7 @@ import os
 
 import numpy as np
 
-import torch
+import torch as T
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -15,8 +15,8 @@ def get_activation():
 def one_hot(t, one_hot_size=None):
     one_hot_size = t.max() + 1 if one_hot_size is None else one_hot_size
 
-    hot = torch.zeros((t.size(0), one_hot_size))
-    hot[torch.arange(t.size(0)), t] = 1
+    hot = T.zeros((t.size(0), one_hot_size))
+    hot[T.arange(t.size(0)), t] = 1
     return hot
 
 
@@ -27,7 +27,6 @@ def cat_channels(t):
             (bs, num_channels, channel_size, h, w)
         to tensor with shape:
             (bs, num_channels * channel_size, h, w)
-
     """
     shape = t.size()
     cat_dim_size = shape[1] * shape[2]
@@ -42,14 +41,14 @@ class BaseModule(nn.Module):
         self.path = path
 
     def persist(self):
-        torch.save(self.state_dict(), self.path)
+        T.save(self.state_dict(), self.path)
 
     def preload_weights(self):
-        self.load_state_dict(torch.load(self.path))
+        self.load_state_dict(T.load(self.path))
 
     def save(self, path=None):
         path = path if self.path is None else path
-        torch.save(self, f'{self.path}_whole.h5')
+        T.save(self, f'{self.path}_whole.h5')
 
     def can_be_preloaded(self):
         return os.path.isfile(self.path)
@@ -60,11 +59,11 @@ class BaseModule(nn.Module):
 
 
 def load_whole_model(path):
-    return torch.load(path)
+    return T.load(path)
 
 
 def batch_conv(x, w, p=0):
-    # SRC - https://discuss.pytorch.org/t/apply-different-convolutions-to-a-batch-of-tensors/56901/2
+    # SRC - https://discuss.pyT.org/t/apply-different-convolutions-to-a-batch-of-tensors/56901/2
 
     batch_size = x.size(0)
     output_size = w.size(1)
@@ -131,9 +130,9 @@ def deconv_block(i, o, ks, s, p, a=get_activation(), d=1, bn=True):
     return nn.Sequential(*block)
 
 
-def conv_encoder(depth, sizes, ks=4, a=get_activation()):
+def conv_blocks(conv_cell, sizes, ks, a):
     layers = [
-        conv_block(
+        conv_cell(
             i=sizes[l],
             o=sizes[l + 1],
             ks=ks,
@@ -149,9 +148,17 @@ def conv_encoder(depth, sizes, ks=4, a=get_activation()):
     return nn.Sequential(*layers)
 
 
+def conv_encoder(sizes, ks=4, a=get_activation()):
+    return conv_blocks(conv_block, sizes, ks, a)
+
+
+def conv_decoder(sizes, ks=4, a=get_activation()):
+    return conv_blocks(deconv_block, sizes, ks, a)
+
+
 def compute_conv_output(net, frame_shape):
-    with torch.no_grad():
-        t = torch.rand(1, *frame_shape)
+    with T.no_grad():
+        t = T.rand(1, *frame_shape)
         out = net(t)
 
         return out.shape
@@ -170,20 +177,20 @@ def extract_tensors(vec, tensor_shapes):
     return tensors
 
 
-@torch.jit.script
+@T.jit.script
 def mask_sequence(tensor, mask):
     initial_shape = tensor.shape
     bs, seq = mask.shape
-    masked = torch.where(
+    masked = T.where(
         mask.reshape(bs * seq, -1),
         tensor.reshape(bs * seq, -1),
-        torch.tensor(0, dtype=torch.float32).to(tensor.device),
+        T.tensor(0, dtype=T.float32).to(tensor.device),
     )
 
     return masked.reshape(initial_shape)
 
 
-@torch.jit.script
+@T.jit.script
 def prepare_rnn_state(state, num_rnn_layers):
     """
     RNN cells expect the initial state
@@ -195,10 +202,10 @@ def prepare_rnn_state(state, num_rnn_layers):
     state          -> [bs, state_size]
     rnn_num_layers -> int
     """
-    return torch.stack(state.chunk(num_rnn_layers, dim=1), dim=0)
+    return T.stack(state.chunk(num_rnn_layers, dim=1), dim=0)
 
 
-def time_distribute(module, input):
+def time_distribute(module, input=None):
     """
     Distribute execution of module over batched sequential input tensor.
     This is done in the batch dimension to facilitate parallel execution.
@@ -207,14 +214,32 @@ def time_distribute(module, input):
     module -> something that takes *x*
     return -> [bs, seq, module(x)]
     """
+    if input is None: return time_distribute_decorator(module)
+
     bs = input.size(0)
     seq_len = input.size(1)
-    input = input.reshape(-1, *input.shape[2:])
+    input = input.reshape(-1, *input.shape[3:])
 
     out = module(input)
     out = out.reshape(bs, seq_len, *out.shape[1:])
 
     return out
+
+
+def time_distribute_decorator(module):
+    class Module(nn.Module):
+        def forward(self, input):
+            bs = input.size(0)
+            seq_len = input.size(1)
+            input = input.reshape(-1, *input.shape[2:])
+
+            module.to(input.device)
+            out = module(input)
+            out = out.view(bs, seq_len, *out.shape[1:])
+
+            return out
+
+    return Module()
 
 
 def time_distribute_13D(module):
@@ -231,7 +256,7 @@ def time_distribute_13D(module):
                 out.size(3),
             )
 
-    return torch.jit.script(Distributed())
+    return T.jit.script(Distributed())
 
 
 def time_distribute_31D(module):
@@ -242,13 +267,13 @@ def time_distribute_31D(module):
             out = module(input)
             return out.reshape(bs, seq_len, out.size(1))
 
-    return torch.jit.script(Distributed())
+    return T.jit.script(Distributed())
 
 
 if __name__ == '__main__':
     # Sanity check mask_sequence
-    tensor = torch.rand(2, 3, 4)
-    mask = torch.rand(2, 3) > 0.5
+    tensor = T.rand(2, 3, 4)
+    mask = T.rand(2, 3) > 0.5
     masked = mask_sequence(tensor, mask)
     print(mask)
     print(masked)

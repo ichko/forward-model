@@ -17,7 +17,7 @@ class Policy(tu.BaseModule):
         self.name = 'Policy Network (Reinforce)'
 
         self.net = nn.Sequential(
-            tu.conv_encoder(depth=4, sizes=(3, 32, 64, 128, 512)),
+            tu.conv_encoder(sizes=(3, 32, 64, 128, 512)),
             tu.reshape(-1, 512),
             nn.ReLU(inplace=True),
             tu.dense(i=512, o=num_actions, a=nn.Softmax(dim=1)),
