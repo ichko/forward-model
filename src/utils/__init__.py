@@ -8,8 +8,26 @@ import cv2
 
 IS_DEBUG = '--debug' in sys.argv
 
+_registered_envs = dict()
+_old_gym_make = gym.make
 
-class PreprocessedEnv:
+
+def _new_gym_make(id, *args, **kwargs):
+    if id in _registered_envs:
+        return _registered_envs[id](*args, **kwargs)
+
+    return _old_gym_make(id, *args, **kwargs)
+
+
+# monkey patch gym.make
+gym.make = _new_gym_make
+
+
+def register_gym_env(id, cls):
+    _registered_envs[id] = cls
+
+
+class _PreprocessedEnv:
     def __init__(
         self,
         env,
@@ -47,7 +65,7 @@ class PreprocessedEnv:
 
 def make_preprocessed_env(env_name, *args, **kwargs):
     env = gym.make(env_name)
-    return PreprocessedEnv(env, *args, **kwargs)
+    return _PreprocessedEnv(env, *args, **kwargs)
 
 
 def persist(func, path, override=False):
