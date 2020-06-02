@@ -1,4 +1,4 @@
-import src.utils.T as tu
+import src.utils.torch as tu
 
 import numpy as np
 
@@ -27,25 +27,23 @@ class Model(tu.BaseModule):
         self.num_rnn_layers = num_rnn_layers
 
         self.precondition_encoder = nn.Sequential(
-            tu.conv_encoder(sizes=(6, 32, 64, 128, 512)),
-            tu.reshape(-1, 512),
-            tu.dense(i=512, o=rnn_hidden_size * num_rnn_layers),
-            nn.Tanh(),
+            tu.conv_encoder(sizes=(6, 16, 32, 64, 128, 256)),
+            tu.reshape(-1, 256),
+            tu.dense(i=256, o=rnn_hidden_size * num_rnn_layers, a=None),
         )
 
         self.frames_encoder = tu.time_distribute(
             nn.Sequential(
-                tu.conv_encoder(sizes=(3, 32, 64, 128, 256)),
+                tu.conv_encoder(sizes=(3, 16, 32, 64, 128, 256)),
                 tu.reshape(-1, 256),
-                tu.dense(i=256, o=frame_encoding_size),
-                nn.Tanh(),
+                tu.dense(i=256, o=frame_encoding_size, a=None),
             ))
 
         self.frames_decoder = tu.time_distribute(
             nn.Sequential(
                 tu.dense(i=rnn_hidden_size, o=256),
                 tu.reshape(-1, 256, 1, 1),
-                tu.conv_decoder(sizes=(256, 128, 64, 32, 3)),
+                tu.conv_decoder(sizes=(256, 128, 64, 32, 16, 3)),
                 nn.Sigmoid(),
             ))
 
@@ -117,8 +115,8 @@ class Model(tu.BaseModule):
     def optim_step(self, batch):
         actions, frames, dones = batch
 
-        dones = T.BoolTensor(dones).to(self.device, )[:,
-                                                      self.precondition_size:]
+        dones = T.BoolTensor(dones) \
+            .to(self.device)[:, self.precondition_size:]
 
         y_pred = self([actions, frames])
         y_pred = tu.mask_sequence(y_pred, ~dones)
@@ -154,26 +152,26 @@ def make_model(precondition_size, frame_size, num_actions):
         frame_size=frame_size,
         num_rnn_layers=2,
         num_actions=num_actions,
-        action_embedding_size=64,
+        action_embedding_size=32,
         rnn_hidden_size=256,
-        frame_encoding_size=256,
+        frame_encoding_size=128,
     )
 
 
 def sanity_check():
     num_precondition_frames = 2
-    frame_size = (16, 16)
+    frame_size = (32, 32)
     num_actions = 3
     max_seq_len = 15
     bs = 10
 
-    rnn = make_model(
+    model = make_model(
         num_precondition_frames,
         frame_size,
         num_actions,
     ).to('cuda')
 
-    print(f'RNN NUM PARAMS {rnn.count_parameters():08,}')
+    print(f'NUM PARAMS {model.count_parameters():08,}')
 
     frames = T.randint(
         0,
@@ -181,13 +179,13 @@ def sanity_check():
         size=(bs, max_seq_len, 3, *frame_size),
     )
     actions = T.randint(0, num_actions, size=(bs, max_seq_len))
-    out_frames = rnn([actions, frames]).detach().cpu()
+    out_frames = model([actions, frames]).detach().cpu()
     dones = T.rand(bs, max_seq_len) > 0.5
 
     print(f'OUT FRAMES SHAPE {out_frames.shape}')
 
-    rnn.configure_optim(lr=0.001)
-    loss, _info = rnn.optim_step([actions, frames, dones])
+    model.configure_optim(lr=0.001)
+    loss, _info = model.optim_step([actions, frames, dones])
 
     print(f'OPTIM STEP LOSS {loss.item()}')
 

@@ -10,17 +10,17 @@ import gym
 import sneks
 
 hparams = argparse.Namespace(
-    # env_name='CubeCrash-v0',
-    env_name='snek-rgb-16-v1',
+    env_name='CubeCrash-v0',
+    # env_name='snek-rgb-16-v1',
     # env_name='CartPole-v1',
     # env_name='LunarLander-v2',
     precondition_size=2,
     dataset_size=500_000,
-    frame_size=(16, 16),
+    frame_size=(32, 32),
     its=1_000_000,
     bs=64,
     log_interval=300,
-    lr=0.0005,
+    lr=0.001,
     device='cuda',
     max_seq_len=32,
     min_seq_len=16,
