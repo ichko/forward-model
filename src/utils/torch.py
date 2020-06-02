@@ -58,10 +58,6 @@ class BaseModule(nn.Module):
         return next(self.parameters()).device
 
 
-def load_whole_model(path):
-    return T.load(path)
-
-
 def batch_conv(x, w, p=0):
     # SRC - https://discuss.pyT.org/t/apply-different-convolutions-to-a-batch-of-tensors/56901/2
 
@@ -227,7 +223,7 @@ def time_distribute(module, input=None):
 
 
 def time_distribute_decorator(module):
-    class Module(nn.Module):
+    class TimeDistributed(nn.Module):
         def forward(self, input):
             bs = input.size(0)
             seq_len = input.size(1)
@@ -239,11 +235,11 @@ def time_distribute_decorator(module):
 
             return out
 
-    return Module()
+    return TimeDistributed()
 
 
 def time_distribute_13D(module):
-    class Distributed(nn.Module):
+    class TimeDistributed(nn.Module):
         def forward(self, input):
             bs, seq_len, s = [input.size(i) for i in range(3)]
             input = input.reshape(-1, s)
@@ -256,18 +252,18 @@ def time_distribute_13D(module):
                 out.size(3),
             )
 
-    return T.jit.script(Distributed())
+    return T.jit.script(TimeDistributed())
 
 
 def time_distribute_31D(module):
-    class Distributed(nn.Module):
+    class TimeDistributed(nn.Module):
         def forward(self, input):
             bs, seq_len, c, h, w = [input.size(i) for i in range(5)]
             input = input.reshape(-1, c, h, w)
             out = module(input)
             return out.reshape(bs, seq_len, out.size(1))
 
-    return T.jit.script(Distributed())
+    return T.jit.script(TimeDistributed())
 
 
 if __name__ == '__main__':

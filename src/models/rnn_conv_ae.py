@@ -27,14 +27,14 @@ class Model(tu.BaseModule):
         self.num_rnn_layers = num_rnn_layers
 
         self.precondition_encoder = nn.Sequential(
-            tu.conv_encoder(sizes=(6, 16, 32, 64, 128, 256)),
+            tu.conv_encoder(sizes=(6, 32, 64, 128, 256)),
             tu.reshape(-1, 256),
             tu.dense(i=256, o=rnn_hidden_size * num_rnn_layers, a=None),
         )
 
         self.frames_encoder = tu.time_distribute(
             nn.Sequential(
-                tu.conv_encoder(sizes=(3, 16, 32, 64, 128, 256)),
+                tu.conv_encoder(sizes=(3, 32, 64, 128, 256)),
                 tu.reshape(-1, 256),
                 tu.dense(i=256, o=frame_encoding_size, a=None),
             ))
@@ -43,7 +43,7 @@ class Model(tu.BaseModule):
             nn.Sequential(
                 tu.dense(i=rnn_hidden_size, o=256),
                 tu.reshape(-1, 256, 1, 1),
-                tu.conv_decoder(sizes=(256, 128, 64, 32, 16, 3)),
+                tu.conv_decoder(sizes=(256, 128, 64, 32, 3)),
                 nn.Sigmoid(),
             ))
 
@@ -160,7 +160,7 @@ def make_model(precondition_size, frame_size, num_actions):
 
 def sanity_check():
     num_precondition_frames = 2
-    frame_size = (32, 32)
+    frame_size = (16, 16)
     num_actions = 3
     max_seq_len = 15
     bs = 10

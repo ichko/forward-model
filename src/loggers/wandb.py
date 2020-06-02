@@ -23,7 +23,12 @@ class WAndBLogger:
                 model_num_params=model.count_parameters(),
             ),
         )
-        wandb.watch(model)
+
+        # ScriptModule models can't be watched for the current version of wandb
+        try:
+            wandb.watch(model)
+        except Exception as _e:
+            pass
 
         # wandb.save('data.py')
         # wandb.save('utils.py')

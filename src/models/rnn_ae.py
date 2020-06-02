@@ -164,13 +164,13 @@ def sanity_check():
     max_seq_len = 15
     bs = 10
 
-    rnn = make_model(
+    model = make_model(
         num_precondition_frames,
         frame_size,
         num_actions,
     ).to('cuda')
 
-    print(f'RNN NUM PARAMS {rnn.count_parameters():08,}')
+    print(f'NUM PARAMS {model.count_parameters():08,}')
 
     frames = torch.randint(
         0,
@@ -178,13 +178,13 @@ def sanity_check():
         size=(bs, max_seq_len, 3, *frame_size),
     )
     actions = torch.randint(0, num_actions, size=(bs, max_seq_len))
-    out_frames = rnn([actions, frames]).detach().cpu()
+    out_frames = model([actions, frames]).detach().cpu()
     dones = torch.rand(bs, max_seq_len) > 0.5
 
     print(f'OUT FRAMES SHAPE {out_frames.shape}')
 
-    rnn.configure_optim(lr=0.001)
-    loss, _info = rnn.optim_step([actions, frames, dones])
+    model.configure_optim(lr=0.001)
+    loss, _info = model.optim_step([actions, frames, dones])
 
     print(f'OPTIM STEP LOSS {loss.item()}')
 
