@@ -65,7 +65,7 @@ class Model(tu.BaseModule):
         actions, frames = x
 
         actions = T.LongTensor(actions).to(self.device)
-        frames = T.FloatTensor(frames / 255.0).to(self.device)
+        frames = T.FloatTensor(frames).to(self.device)
 
         precondition = frames[:, :self.precondition_size]
         precondition = precondition.view(
@@ -105,9 +105,9 @@ class Model(tu.BaseModule):
 
         for i in range(seq_len - self.precondition_size):
             pred_frames = self._forward([actions, frames])
-            frames[:, i + self.precondition_size] = pred_frames[:, i] * 255
+            frames[:, i + self.precondition_size] = pred_frames[:, i]
 
-        return frames[:, self.precondition_size:] / 255.0
+        return frames[:, self.precondition_size:]
 
     def reset(self, precondition):
         self.frames = precondition.tolist()
@@ -122,16 +122,18 @@ class Model(tu.BaseModule):
         return pred_frame
 
     def optim_step(self, batch):
-        actions, frames, dones = batch
+        actions = batch['actions']
+        observations = batch['observations']
+        terminals = batch['terminals']
 
-        dones = T.BoolTensor(dones) \
+        terminals = T.BoolTensor(terminals) \
             .to(self.device)[:, self.precondition_size:]
 
-        y_pred = self([actions, frames])
+        y_pred = self([actions, observations])
         y_pred = y_pred[:, :-1]  # we don't have label for the last frame
-        y_pred = tu.mask_sequence(y_pred, ~dones)
+        y_pred = tu.mask_sequence(y_pred, ~terminals)
 
-        y_true = T.FloatTensor(frames / 255.0).to(
+        y_true = T.FloatTensor(observations).to(
             self.device, )[:, self.precondition_size:]
 
         loss = F.binary_cross_entropy(y_pred, y_true)
@@ -188,15 +190,19 @@ def sanity_check():
         0,
         255,
         size=(bs, max_seq_len, 3, *frame_size),
-    )
+    ) / 255.0
     actions = T.randint(0, num_actions, size=(bs, max_seq_len))
     out_frames = model([actions, frames]).detach().cpu()
-    dones = T.rand(bs, max_seq_len) > 0.5
+    terminals = T.rand(bs, max_seq_len) > 0.5
 
     print(f'OUT FRAMES SHAPE {out_frames.shape}')
 
     model.configure_optim(lr=0.001)
-    loss, _info = model.optim_step([actions, frames, dones])
+    loss, _info = model.optim_step({
+        'actions': actions,
+        'observations': frames,
+        'terminals': terminals,
+    })
 
     print(f'OPTIM STEP LOSS {loss.item()}')
 

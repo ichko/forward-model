@@ -63,7 +63,16 @@ def mp_generator(
 
     def get_batch():
         batch = random.sample(local_process_buffer, bs)
-        return [np.array(t) for t in zip(*batch)]
+        actions, observations, rewards, terminals = [
+            np.array(t) for t in zip(*batch)
+        ]
+
+        return {
+            'actions': actions,
+            'observations': observations,
+            'rewards': rewards,
+            'terminals': terminals,
+        }
 
     def generator():
         while True:
@@ -75,9 +84,6 @@ def mp_generator(
                 yield get_batch()
 
     generator_instance = generator()
-
-    for _ in range(buffer_size):
-        next(generator_instance)
 
     class StatefulGenerator:
         def __init__(self):
@@ -100,12 +106,13 @@ def random_mp_generator(
     bs,
     min_seq_len,
     max_seq_len,
+    frame_size=None,
     num_processes=16,
 ):
     from src.utils import make_preprocessed_env
 
     def env_ctor():
-        env = make_preprocessed_env(env_name)
+        env = make_preprocessed_env(env_name, frame_size=frame_size)
         return env
 
     def agent_ctor():
@@ -118,7 +125,7 @@ def random_mp_generator(
         agent_ctor=agent_ctor,
         min_seq_len=min_seq_len,
         max_seq_len=max_seq_len,
-        buffer_size=1000,
+        buffer_size=256,
         num_processes=num_processes,
     )
 
@@ -130,12 +137,12 @@ if __name__ == '__main__':
 
     generator = random_mp_generator(
         env_name='snek-rgb-16-v1',
-        bs=15,
-        min_seq_len=32,
-        max_seq_len=32,
+        bs=32,
+        min_seq_len=50,
+        max_seq_len=64,
+        frame_size=(32, 32),
     )
 
-    while True:
+    for i in range(100000):
         batch = next(generator)
-        actions, observations, rewards, terminals = batch
-        print('Generator len', len(generator))
+        print(f'{i:04} Generator size:', len(generator))

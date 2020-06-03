@@ -33,22 +33,22 @@ class PreprocessedEnv:
         env,
         obs_scalar=255,
         channel_first=True,
-        use_rendering=False,
-        shape=None,
+        use_rendering=True,
+        frame_size=None,
     ):
         self.env = env
         self.use_rendering = use_rendering
-        self.shape = shape
+        self.frame_size = frame_size
         self.channel_first = channel_first
         self.obs_scalar = obs_scalar
 
     def preprocess_obs(self, obs):
         if self.use_rendering:
             obs = self.env.render('rgb_array')
+        if self.frame_size is not None:
+            obs = cv2.resize(obs, self.frame_size)
         if self.channel_first:
             obs = np.transpose(obs, (2, 0, 1))
-        if self.shape is not None:
-            obs = cv2.reshape(obs, self.shape)
 
         return obs / self.obs_scalar
 
@@ -60,7 +60,8 @@ class PreprocessedEnv:
 
     def step(self, *args):
         obs, reward, done, info = self.env.step(*args)
-        return self.preprocess_obs(obs), reward, done, info
+        obs = self.preprocess_obs(obs)
+        return obs, reward, done, info
 
 
 def make_preprocessed_env(env_name, *args, **kwargs):

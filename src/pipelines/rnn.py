@@ -1,7 +1,7 @@
 import sys
 
 from src.models.rnn_conv_ae import sanity_check, make_model
-from src.data.rollout_generator import RolloutGenerator
+from src.data.mp_rollout_generator import random_mp_generator
 from src.utils.trainer import fit_generator
 from src.utils import add_virtual_display
 from src.loggers.wandb import WAndBLogger
@@ -47,13 +47,11 @@ def get_model(env):
 def get_data_generator(env, agent=None):
     agent = (lambda _: env.action_space.sample()) if agent is None else agent
 
-    return RolloutGenerator(
-        env=env,
-        agent=agent,
+    return random_mp_generator(
+        env_name=hparams.env_name,
         bs=hparams.bs,
         min_seq_len=hparams.min_seq_len,
         max_seq_len=hparams.max_seq_len,
-        buffer_size=hparams.dataset_size,
         frame_size=hparams.frame_size,
     )
 
