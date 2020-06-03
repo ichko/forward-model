@@ -33,9 +33,17 @@ def cat_channels(t):
     return t.view(-1, cat_dim_size, *shape[3:])
 
 
+def count_parameters(module):
+    return sum(p.numel() for p in module.parameters() if p.requires_grad)
+
+
 class BaseModule(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.name = 'Custom Module'
+
     def count_parameters(self):
-        return sum(p.numel() for p in self.parameters() if p.requires_grad)
+        return count_parameters(self)
 
     def make_persisted(self, path):
         self.path = path
@@ -52,6 +60,15 @@ class BaseModule(nn.Module):
 
     def can_be_preloaded(self):
         return os.path.isfile(self.path)
+
+    def summary(self):
+        result = f' > {self.name[:38]:<38} | {count_parameters(self):09,}\n'
+        for name, module in self.named_children():
+            type = module._get_name()
+            num_prams = count_parameters(module)
+            result += f' >  {name[:20]:>20}: {type[:15]:<15} | {num_prams:9,}\n'
+
+        return result
 
     @property
     def device(self):
@@ -214,7 +231,7 @@ def time_distribute(module, input=None):
 
     bs = input.size(0)
     seq_len = input.size(1)
-    input = input.reshape(-1, *input.shape[3:])
+    input = input.reshape(-1, *input.shape[2:])
 
     out = module(input)
     out = out.reshape(bs, seq_len, *out.shape[1:])
@@ -224,12 +241,20 @@ def time_distribute(module, input=None):
 
 def time_distribute_decorator(module):
     class TimeDistributed(nn.Module):
+        def __init__(self):
+            # IMPORTANT:
+            #   This init has to be here so that the
+            #   passed module parameters can be part of the
+            #   state (parameters) of the overall model.
+
+            super().__init__()
+            self.module = module
+
         def forward(self, input):
             bs = input.size(0)
             seq_len = input.size(1)
             input = input.reshape(-1, *input.shape[2:])
 
-            module.to(input.device)
             out = module(input)
             out = out.view(bs, seq_len, *out.shape[1:])
 
