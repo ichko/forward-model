@@ -27,7 +27,7 @@ def register_gym_env(id, cls):
     _registered_envs[id] = cls
 
 
-class _PreprocessedEnv:
+class PreprocessedEnv:
     def __init__(
         self,
         env,
@@ -65,7 +65,7 @@ class _PreprocessedEnv:
 
 def make_preprocessed_env(env_name, *args, **kwargs):
     env = gym.make(env_name)
-    return _PreprocessedEnv(env, *args, **kwargs)
+    return PreprocessedEnv(env, *args, **kwargs)
 
 
 def persist(func, path, override=False):

@@ -4,8 +4,8 @@ import atexit
 
 
 class MiltiprocessBuffer:
-    def __init__(self, buff_size, generator_func, num_processes):
-        self.buffer = mp.Queue(maxsize=buff_size)
+    def __init__(self, buffer_size, generator_func, num_processes):
+        self.buffer = mp.Queue(maxsize=buffer_size)
         self.generator_func = generator_func
         self.lock = mp.Lock()
         self.processes = [
@@ -23,6 +23,15 @@ class MiltiprocessBuffer:
         for p in self.processes:
             if p.is_alive:
                 p.terminate()
+
+    def try_pop(self):
+        if self.buffer.empty(): return None
+        return self.buffer.get()
+
+    def pop(self):
+        while True:
+            if not self.buffer.empty():
+                return self.buffer.get()
 
     def get(self, n):
         result = []
@@ -54,7 +63,7 @@ if __name__ == '__main__':
             yield val
 
     mpb = MiltiprocessBuffer(
-        buff_size=1000,
+        buffer_size=1000,
         generator_func=gen_init,
         num_processes=64,
     )
