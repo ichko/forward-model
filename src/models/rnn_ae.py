@@ -70,8 +70,8 @@ class RNNAutoEncoder(tu.BaseModule):
         frames = torch.FloatTensor(frames / 255.0).to(self.device)
 
         precondition = frames[:, :self.precondition_size]
-        frames = frames[:, self.precondition_size:]
-        actions = actions[:, self.precondition_size:]
+        frames = frames[:, self.precondition_size - 1:]
+        actions = actions[:, self.precondition_size - 1:]
 
         precondition_map = self.precondition_encoder(precondition)
         precondition_map = tu.prepare_rnn_state(
@@ -118,7 +118,9 @@ class RNNAutoEncoder(tu.BaseModule):
             self.device, )[:, self.precondition_size:]
 
         y_pred = self([actions, frames])
+        y_pred = y_pred[:, :-1]
         y_pred = tu.mask_sequence(y_pred, ~dones)
+
         y_true = torch.FloatTensor(frames / 255.0).to(
             self.device, )[:, self.precondition_size:]
 

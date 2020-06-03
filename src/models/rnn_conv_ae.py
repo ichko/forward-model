@@ -27,23 +27,25 @@ class Model(tu.BaseModule):
         self.num_rnn_layers = num_rnn_layers
 
         self.precondition_encoder = nn.Sequential(
-            tu.conv_encoder(sizes=(6, 32, 64, 128, 256)),
-            tu.reshape(-1, 256),
-            tu.dense(i=256, o=rnn_hidden_size * num_rnn_layers, a=None),
+            tu.conv_encoder(sizes=(6, 32, 64, 32)),
+            tu.reshape(-1, 32 * 4 * 4),
+            tu.dense(i=32 * 4 * 4, o=rnn_hidden_size * num_rnn_layers, a=None),
         )
 
         self.frames_encoder = tu.time_distribute(
             nn.Sequential(
-                tu.conv_encoder(sizes=(3, 32, 64, 128, 256)),
-                tu.reshape(-1, 256),
-                tu.dense(i=256, o=frame_encoding_size, a=None),
+                nn.Dropout2d(p=0.5),
+                tu.conv_encoder(sizes=(3, 32, 64, 32)),
+                tu.reshape(-1, 32 * 4 * 4),
+                tu.dense(i=32 * 4 * 4, o=frame_encoding_size, a=None),
             ))
 
         self.frames_decoder = tu.time_distribute(
             nn.Sequential(
-                tu.dense(i=rnn_hidden_size, o=256),
-                tu.reshape(-1, 256, 1, 1),
-                tu.conv_decoder(sizes=(256, 128, 64, 32, 3)),
+                nn.Dropout(p=0.1),
+                tu.dense(i=rnn_hidden_size, o=32 * 4 * 4),
+                tu.reshape(-1, 32, 4, 4),
+                tu.conv_decoder(sizes=(32, 64, 32, 3)),
                 nn.Sigmoid(),
             ))
 
@@ -71,8 +73,8 @@ class Model(tu.BaseModule):
             self.precondition_channels,
             *self.frame_size,
         )
-        frames = frames[:, self.precondition_size:]
-        actions = actions[:, self.precondition_size:]
+        frames = frames[:, self.precondition_size - 1:]
+        actions = actions[:, self.precondition_size - 1:]
 
         precondition_map = self.precondition_encoder(precondition)
         precondition_map = tu.prepare_rnn_state(
@@ -85,16 +87,11 @@ class Model(tu.BaseModule):
         action_frame_pair = T.cat([actions_map, frames_map], dim=-1)
 
         rnn_out_vectors, _ = self.rnn(action_frame_pair, precondition_map)
-        frames = self.frames_decoder(rnn_out_vectors)
+        pred_frames = self.frames_decoder(rnn_out_vectors)
 
-        return frames
+        return pred_frames
 
     def forward(self, x):
-        """
-        x -> (frames, actions)
-            frames  -> [bs, sequence, 3, H, W]
-            actions -> [bs, sequence]
-        """
         if not self.training:
             return self.rollout(x)
 
@@ -112,6 +109,18 @@ class Model(tu.BaseModule):
 
         return frames[:, self.precondition_size:] / 255.0
 
+    def reset(self, precondition):
+        self.frames = precondition.tolist()
+        self.actions = [0] * self.precondition_size
+
+    def step(self, action):
+        self.actions.append(action)
+        pred_frame = self._forward([[self.actions], [self.frames]])[0, -1]
+        pred_frame = pred_frame.cpu().numpy()
+        self.frames.append(pred_frame)
+
+        return pred_frame
+
     def optim_step(self, batch):
         actions, frames, dones = batch
 
@@ -119,7 +128,9 @@ class Model(tu.BaseModule):
             .to(self.device)[:, self.precondition_size:]
 
         y_pred = self([actions, frames])
+        y_pred = y_pred[:, :-1]  # we don't have label for the last frame
         y_pred = tu.mask_sequence(y_pred, ~dones)
+
         y_true = T.FloatTensor(frames / 255.0).to(
             self.device, )[:, self.precondition_size:]
 
@@ -150,17 +161,17 @@ def make_model(precondition_size, frame_size, num_actions):
     return Model(
         precondition_size=precondition_size,
         frame_size=frame_size,
-        num_rnn_layers=2,
+        num_rnn_layers=1,
         num_actions=num_actions,
         action_embedding_size=32,
-        rnn_hidden_size=256,
+        rnn_hidden_size=200,
         frame_encoding_size=128,
     )
 
 
 def sanity_check():
     num_precondition_frames = 2
-    frame_size = (16, 16)
+    frame_size = (32, 32)
     num_actions = 3
     max_seq_len = 15
     bs = 10
@@ -171,7 +182,7 @@ def sanity_check():
         num_actions,
     ).to('cuda')
 
-    print(f'NUM PARAMS {model.count_parameters():08,}')
+    print(model.summary())
 
     frames = T.randint(
         0,

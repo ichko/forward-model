@@ -74,29 +74,30 @@ class RNN(tu.BaseModule):
             embedding_dim=action_embedding_size,
         )
 
-        self.deconvolve_to_frame = nn.Sequential(
-            tu.dense(i=rnn_hidden_size, o=256),
-            tu.reshape(-1, 256, 1, 1),
-            nn.Dropout2d(p=0.5),
-            tu.deconv_block(i=256, o=128, ks=5, s=2, p=1, d=1),
-            tu.deconv_block(i=128, o=64, ks=5, s=2, p=1, d=1),
-            nn.Dropout2d(p=0.3),
-            tu.deconv_block(i=64, o=32, ks=5, s=2, p=2, d=2),
-            tu.deconv_block(
-                i=32,
-                o=3,
-                ks=4,
-                s=2,
-                p=2,
-                d=1,
-                a=nn.Sigmoid(),
-                bn=False,
-            ),
-        )
+        self.deconvolve_to_frame = tu.time_distribute(
+            nn.Sequential(
+                tu.dense(i=rnn_hidden_size, o=256),
+                tu.reshape(-1, 256, 1, 1),
+                nn.Dropout2d(p=0.5),
+                tu.deconv_block(i=256, o=128, ks=5, s=2, p=1, d=1),
+                tu.deconv_block(i=128, o=64, ks=5, s=2, p=1, d=1),
+                nn.Dropout2d(p=0.3),
+                tu.deconv_block(i=64, o=32, ks=5, s=2, p=2, d=2),
+                tu.deconv_block(
+                    i=32,
+                    o=3,
+                    ks=4,
+                    s=2,
+                    p=2,
+                    d=1,
+                    a=nn.Sigmoid(),
+                    bn=False,
+                ),
+            ))
 
     def forward(self, x):
         """
-        x -> (precondition_frames, actions)
+        x -> (actions, precondition_frames)
             precondition_frames -> [bs, num_preconditions, 3, H, W]
             actions             -> [bs, sequence]
         return -> future frame
@@ -122,7 +123,7 @@ class RNN(tu.BaseModule):
 
         action_vectors = self.action_embedding(actions)
         rnn_out_vectors, _ = self.rnn(action_vectors, rnn_preconditions)
-        frames = tu.time_distribute(self.deconvolve_to_frame, rnn_out_vectors)
+        frames = self.deconvolve_to_frame(rnn_out_vectors)
 
         return frames
 
@@ -130,20 +131,21 @@ class RNN(tu.BaseModule):
         actions, frames, dones = batch
 
         precondition = frames[:, :self.num_precondition_frames]
-        actions = actions[:, self.num_precondition_frames:]
+        actions = actions[:, self.num_precondition_frames - 1:]
 
         y_true = torch.FloatTensor(frames / 255.0).to(
             self.device, )[:, self.num_precondition_frames:]
         dones = torch.BoolTensor(dones).to(
             self.device, )[:, self.num_precondition_frames:]
 
-        self.optim.zero_grad()
         y_pred = self([actions, precondition])
+        y_pred = y_pred[:, :-1]
         y_pred = tu.mask_sequence(y_pred, ~dones)
 
         loss = F.binary_cross_entropy(y_pred, y_true)
 
         if loss.requires_grad:
+            self.optim.zero_grad()
             loss.backward()
             self.optim.step()
             self.scheduler.step()

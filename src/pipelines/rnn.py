@@ -1,3 +1,5 @@
+import sys
+
 from src.models.rnn_conv_ae import sanity_check, make_model
 from src.data.rollout_generator import RolloutGenerator
 from src.utils.trainer import fit_generator
@@ -15,10 +17,10 @@ hparams = argparse.Namespace(
     # env_name='CartPole-v1',
     # env_name='LunarLander-v2',
     precondition_size=2,
-    dataset_size=500_000,
-    frame_size=(16, 16),
+    dataset_size=5000,
+    frame_size=(32, 32),
     its=1_000_000,
-    bs=128,
+    bs=64,
     log_interval=300,
     lr=0.0001,
     device='cuda',
@@ -45,7 +47,7 @@ def get_model(env):
 def get_data_generator(env, agent=None):
     agent = (lambda _: env.action_space.sample()) if agent is None else agent
 
-    gen = RolloutGenerator(
+    return RolloutGenerator(
         env=env,
         agent=agent,
         bs=hparams.bs,
@@ -54,9 +56,6 @@ def get_data_generator(env, agent=None):
         buffer_size=hparams.dataset_size,
         frame_size=hparams.frame_size,
     )
-
-    for _ep_id, actions, frames, dones in gen:
-        yield actions, frames, dones
 
 
 def main():
@@ -68,11 +67,13 @@ def main():
     val_data_generator = get_data_generator(env)
 
     model = get_model(env)
-    try:
-        model.preload_weights()
-        print('>>> MODEL PRELOADED')
-    except Exception as _e:
-        print('>>> Could not preload! Starting from scratch.')
+
+    if '--from-scratch' not in sys.argv:
+        try:
+            model.preload_weights()
+            print('>>> MODEL PRELOADED')
+        except Exception as _e:
+            print('>>> Could not preload! Starting from scratch.')
 
     model.configure_optim(lr=hparams.lr)
     model = model.to(hparams.device)
@@ -83,6 +84,8 @@ def main():
         hparams=hparams,
         type='video',
     )
+
+    print(model.summary())
 
     fit_generator(
         model,
