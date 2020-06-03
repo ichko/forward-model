@@ -16,9 +16,10 @@ def fit_generator(
     for it in tr:
         batch = next(train_data_generator)
         train_loss, train_info = model.optim_step(batch)
-
         train_loss = train_loss.item()
-        tr.set_description(f'Loss: {train_loss}')
+
+        tr.set_description(
+            f'Loss: {train_loss:.6f}, Buff size: {len(train_data_generator)}')
         logger.log({'train_loss': train_loss})
 
         if it % log_info_interval == 0:
