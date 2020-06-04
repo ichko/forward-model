@@ -101,3 +101,43 @@ def try_colored_traceback():
 
 
 try_colored_traceback()
+
+
+# This does `not` work with `down` because the variable is not shared between threads
+# `d` variable is shared
+# TODO: make variable shared?
+def keyboard():
+    from pynput import keyboard
+
+    down = set()
+    d = None
+
+    class Keyboard:
+        def is_pressed(self, key):
+            if hasattr(d, 'char'):
+                return key == d.char
+            return False
+            # return key in down
+
+        def on_release(self, key):
+            if key in down:
+                down.remove(key)
+
+        def on_press(self, key):
+            nonlocal d
+            d = key
+            down.add(key)
+
+        def __enter__(self):
+            self.listener = keyboard.Listener(
+                on_press=self.on_press,
+                on_release=self.on_release,
+            )
+            self.listener.__enter__()
+
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            self.listener.__exit__(exc_type, exc_val, exc_tb)
+
+    return Keyboard()
