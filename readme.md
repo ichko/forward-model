@@ -12,7 +12,7 @@ Experiments and models for my masters thesis on learning environment dynamics fr
 - General stuff
 
   - [x] Mask out empty (padded) frames after rollout has finished. [See here.](https://www.kdnuggets.com/2018/06/taming-lstms-variable-sized-mini-batches-pytorch.html)
-  - [ ] Label smoothing. Do I actually want that?
+  - [~] Label smoothing. Do I actually want that?
 
 - Models
 
