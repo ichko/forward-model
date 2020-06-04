@@ -17,7 +17,7 @@ class EmbeddingTransformer(tu.BaseModule):
 
         inp = self.precondition_channels
         self.compute_precondition = nn.Sequential(
-            nn.Dropout2d(0.5),
+            nn.Dropout(0.5),
             tu.conv_block(i=inp, o=64, ks=5, s=1, p=2, d=1),
             tu.conv_block(i=64, o=64, ks=5, s=1, p=2, d=1),
             tu.conv_block(
@@ -50,7 +50,7 @@ class EmbeddingTransformer(tu.BaseModule):
         )
 
         self.expand_transformed = nn.Sequential(
-            nn.Dropout2d(0.1),
+            nn.Dropout(0.1),
             tu.deconv_block(i=32, o=64, ks=3, s=1, p=1, d=1),
             tu.deconv_block(i=64, o=32, ks=5, s=1, p=2, d=1),
             tu.deconv_block(

@@ -37,13 +37,13 @@ class RNN(tu.BaseModule):
 
         inp = self.precondition_channels
         self.compute_precondition = nn.Sequential(
-            nn.Dropout2d(p=0.8),
+            nn.Dropout(p=0.8),
             tu.conv_block(i=inp, o=32, ks=4, s=2, p=1, d=1),
             tu.conv_block(i=32, o=64, ks=4, s=2, p=1, d=1),
-            nn.Dropout2d(p=0.5),
+            nn.Dropout(p=0.5),
             tu.conv_block(i=64, o=64, ks=4, s=2, p=1, d=1),
             tu.conv_block(i=64, o=128, ks=4, s=2, p=1, d=1),
-            nn.Dropout2d(p=0.5),
+            nn.Dropout(p=0.5),
             tu.conv_block(i=128, o=256, ks=4, s=2, p=1, d=1, bn=False),
         )
 
@@ -78,10 +78,10 @@ class RNN(tu.BaseModule):
             nn.Sequential(
                 tu.dense(i=rnn_hidden_size, o=256),
                 tu.reshape(-1, 256, 1, 1),
-                nn.Dropout2d(p=0.5),
+                nn.Dropout(p=0.5),
                 tu.deconv_block(i=256, o=128, ks=5, s=2, p=1, d=1),
                 tu.deconv_block(i=128, o=64, ks=5, s=2, p=1, d=1),
-                nn.Dropout2d(p=0.3),
+                nn.Dropout(p=0.3),
                 tu.deconv_block(i=64, o=32, ks=5, s=2, p=2, d=2),
                 tu.deconv_block(
                     i=32,

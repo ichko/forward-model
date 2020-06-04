@@ -33,7 +33,7 @@ def get_env():
     return gym.make(hparams.env_name)
 
 
-def get_model(env):
+def get_model(hparams, env):
     model = make_model(
         precondition_size=hparams.precondition_size,
         frame_size=hparams.frame_size,
@@ -64,7 +64,7 @@ def main():
     train_data_generator = get_data_generator(env)
     val_data_generator = get_data_generator(env)
 
-    model = get_model(env)
+    model = get_model(hparams, env)
 
     if '--from-scratch' not in sys.argv:
         try:

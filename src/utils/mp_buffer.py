@@ -45,7 +45,7 @@ class MiltiprocessBuffer:
     def _run(self, proc_id):
         generator = self.generator_func()
         while True:
-            while not self.buffer.full():
+            if not self.buffer.full():
                 value = next(generator)
                 with self.lock:
                     self.buffer.put(value)

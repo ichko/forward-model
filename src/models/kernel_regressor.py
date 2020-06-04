@@ -23,7 +23,7 @@ class KernelRegressor(tu.BaseModule):
         self.frame_size = frame_size
 
         self.compute_precondition = nn.Sequential(
-            nn.Dropout2d(0.15),
+            nn.Dropout(0.15),
             tu.conv_block(
                 i=self.precondition_channels,
                 o=16,
@@ -33,7 +33,7 @@ class KernelRegressor(tu.BaseModule):
                 d=1,
             ),
             tu.conv_block(i=16, o=32, ks=5, s=1, p=2, d=1),
-            nn.Dropout2d(0.1),
+            nn.Dropout(0.1),
             tu.conv_block(
                 i=32,
                 o=4,
@@ -72,7 +72,7 @@ class KernelRegressor(tu.BaseModule):
         )
 
         self.current_frame_map = nn.Sequential(
-            nn.Dropout2d(0.05),
+            nn.Dropout(0.05),
             tu.conv_block(i=3, o=16, ks=3, s=1, p=1, d=1),
             tu.conv_block(i=16, o=64, ks=5, s=1, p=2, d=1),
             tu.conv_block(i=64, o=32, ks=5, s=1, p=2, d=1),
@@ -81,9 +81,9 @@ class KernelRegressor(tu.BaseModule):
 
         self.expand_transformed = nn.Sequential(
             tu.deconv_block(i=6, o=16, ks=3, s=1, p=1, d=1),
-            # nn.Dropout2d(0.05),
+            # nn.Dropout(0.05),
             tu.deconv_block(i=16, o=16, ks=5, s=1, p=2, d=1),
-            # nn.Dropout2d(0.05),
+            # nn.Dropout(0.05),
             tu.deconv_block(
                 i=16,
                 o=3,
