@@ -34,7 +34,7 @@ class Model(tu.BaseModule):
 
         self.frames_encoder = tu.time_distribute(
             nn.Sequential(
-                nn.Dropout2d(p=0.5),
+                nn.Dropout(p=0.5),
                 tu.conv_encoder(sizes=(3, 32, 64, 32)),
                 tu.reshape(-1, 32 * 4 * 4),
                 tu.dense(i=32 * 4 * 4, o=frame_encoding_size, a=None),
@@ -42,7 +42,7 @@ class Model(tu.BaseModule):
 
         self.frames_decoder = tu.time_distribute(
             nn.Sequential(
-                nn.Dropout(p=0.1),
+                nn.Dropout(p=0.2),
                 tu.dense(i=rnn_hidden_size, o=32 * 4 * 4),
                 tu.reshape(-1, 32, 4, 4),
                 tu.conv_decoder(sizes=(32, 64, 32, 3)),
@@ -109,14 +109,23 @@ class Model(tu.BaseModule):
 
         return frames[:, self.precondition_size:]
 
-    def reset(self, precondition):
-        self.frames = precondition.tolist()
-        self.actions = [0] * self.precondition_size
+    def render(self, _mode='rgb_array'):
+        pred_frame = self._forward([[self.actions], [self.frames]])[0, -1]
+        pred_frame = pred_frame.detach().cpu().numpy()
+        return pred_frame
+
+    def reset(self, precondition, precondition_actions):
+        self.frames = precondition
+        self.actions = precondition_actions
+
+        pred_frame = self.render()
+        self.frames.append(pred_frame)
+
+        return pred_frame
 
     def step(self, action):
         self.actions.append(action)
-        pred_frame = self._forward([[self.actions], [self.frames]])[0, -1]
-        pred_frame = pred_frame.cpu().numpy()
+        pred_frame = self.render()
         self.frames.append(pred_frame)
 
         return pred_frame
@@ -129,8 +138,9 @@ class Model(tu.BaseModule):
         terminals = T.BoolTensor(terminals) \
             .to(self.device)[:, self.precondition_size:]
 
-        y_pred = self([actions, observations])
-        y_pred = y_pred[:, :-1]  # we don't have label for the last frame
+        # we don't have label for the last frame
+        # so we don't want to predict for them
+        y_pred = self([actions[:, :-1], observations[:, :-1]])
         y_pred = tu.mask_sequence(y_pred, ~terminals)
 
         y_true = T.FloatTensor(observations).to(
