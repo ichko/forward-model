@@ -25,6 +25,11 @@ Experiments and models for my masters thesis on learning environment dynamics fr
 
 - Notes
 
+  - 06.06.2020
+
+    - Implement pong agent class + action mappings ([3, 3] => 9)
+    - Make RNN Playable (interface like a gym)
+
   - 04.06.2020
     - [BUGFIX] Found major bug in RNN models - the pred frames and true frames were not aligned, the model was trying to predict the present from the present
     - [BUGFIX] TimeDistributed (decorator) module was not holding the wrapped module in it's state resulting in the parameters of the wrapped module not being part of the overall model, resulting in the model not being able to be trined. (Took quite some time)
