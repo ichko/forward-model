@@ -145,20 +145,19 @@ class PONGGym(gym.Env):
 
     def step(self, action):
         if not self.pong.game_over:
+            # Actions are [0:2, 0:2]
+            # We center them in [-1:1,-1:1]
+            action = np.array(action) - 1
             self.pong.tick(*action)
 
         obs = self.render('rgb_array')
-        reward = 0
+        reward = not self.pong.game_over
         done = self.pong.game_over
 
         return obs, reward, done, {}
 
     def reset(self):
-        self.action_space = spaces.Box(
-            low=np.array([-1, -1]),
-            high=np.array([1, 1]),
-            dtype=np.uint8,
-        )
+        self.action_space = spaces.MultiDiscrete(nvec=[3, 3])
 
         self.observation_space = spaces.Box(
             low=0,
@@ -179,7 +178,7 @@ class PONGGym(gym.Env):
 
         return self.render('rgb_array')
 
-    def render(self, mode='human', close=False):
+    def render(self, mode='rgb_array', close=False):
         assert mode in PONGGym.metadata['render.modes'], \
             f'invalid render mode `{mode}`'
 
@@ -188,7 +187,7 @@ class PONGGym(gym.Env):
         self.pong.right_plank.render(self.R)
         self.pong.ball.render(self.R)
 
-        obs = self.R.canvas[:, :, 0]
+        obs = self.R.canvas
 
         if mode == 'human':
             if not self.window_created:
@@ -199,102 +198,76 @@ class PONGGym(gym.Env):
         return obs
 
 
-class StatefulPongGenerator:
-    def __init__(self, W, H, seq_len, stochasticity=0.5):
-        self.seq_len = seq_len
-        self.W = W
-        self.H = H
+class PONGAgent:
+    def __init__(self, pong_env, stochasticity=0.5):
+        self.pong_env = pong_env
         self.stochasticity = stochasticity
+        self.f = uniform(0, 2 * pi)
 
-    def __iter__(self):
-        return self
+    def __call__(self, _obs):
+        self.f += 0.1
+        pong = self.pong_env.pong
 
-    def __next__(self):
-        direction = uniform(0, 2 * pi)
-        simulation = PONGGym(self.W, self.H, direction)
-        pong = simulation.pong
-        controls = []
-        frames = []
-        outcomes = []
+        left_y_diff = pong.ball.pos.y - pong.left_plank.pos.y + \
+            pong.plank_height // 2
+        left_dir = left_y_diff if pong.ball.pos.x <= 0 else sin(self.f)
 
-        f = uniform(0, 2 * pi)
-        for _ in range(self.seq_len):
-            f += 0.1
+        right_y_diff = pong.ball.pos.y - pong.right_plank.pos.y + \
+            pong.plank_height // 2
+        right_dir = right_y_diff if pong.ball.pos.x >= 0 else sin(self.f)
 
-            left_y_diff = pong.ball.pos.y - pong.left_plank.pos.y + \
-                pong.plank_height // 2
-            left_dir = left_y_diff if pong.ball.pos.x <= 0 else sin(f)
+        random_movement_left = choice([-1, 0, 1])
+        random_movement_right = choice([-1, 0, 1])
 
-            right_y_diff = pong.ball.pos.y - pong.right_plank.pos.y + \
-                pong.plank_height // 2
-            right_dir = right_y_diff if pong.ball.pos.x >= 0 else sin(f)
+        left_plank_dir = random_movement_left if \
+            uniform(0, 1) < self.stochasticity else \
+            copysign(1, left_dir)
 
-            random_movement_left = choice([-1, 0, 1])
-            random_movement_right = choice([-1, 0, 1])
+        right_plank_dir = random_movement_right if \
+            uniform(0, 1) < self.stochasticity else \
+            copysign(1, right_dir)
 
-            left_plank_dir = random_movement_left if \
-                uniform(0, 1) < self.stochasticity else \
-                copysign(1, left_dir)
-
-            right_plank_dir = random_movement_right if \
-                uniform(0, 1) < self.stochasticity else \
-                copysign(1, right_dir)
-
-            control = [left_plank_dir, right_plank_dir]
-            frame, _reward, game_over, _info = simulation.step(control)
-
-            controls.append(control)
-            frames.append(frame)
-            outcomes.append(game_over)
-
-        return (np.array(direction), np.array(controls)), \
-               (np.array(frames), np.array(outcomes))
+        # from -1:1 to 0:2 intervals
+        return [left_plank_dir + 1, right_plank_dir + 1]
 
 
 # REGISTER PONG ENVIRONMENTS
-for screen_size in [50, 64, 128]:
+def pong_ctor(W, H, direction):
+    return lambda: PONGGym(W, H, direction)
+
+
+for screen_size in [40, 50, 64, 128]:
     register_gym_env(
         id=f'DeterministicTwoPlayerPong-{screen_size}-v0',
-        cls=lambda: PONGGym(screen_size, screen_size, 0.3),
+        cls=pong_ctor(screen_size, screen_size, 0.3),
     )
 
     register_gym_env(
         id=f'TwoPlayerPong-{screen_size}-v0',
-        cls=lambda: PONGGym(screen_size, screen_size, uniform(0, 2 * pi)),
+        cls=pong_ctor(screen_size, screen_size, uniform(0, 2 * pi)),
     )
 
 
-def test_games_generator():
-    generator = StatefulPongGenerator(32, 32, 128)
-    for _ in range(10_000):
-        _X, _Y = next(generator)
+def sanity_check():
+    import gym
 
-    (d, c), (f, go) = next(generator)
+    env = gym.make('DeterministicTwoPlayerPong-50-v0')
+    agent = PONGAgent(env, stochasticity=0.0)
+    Renderer.init_window(550, 550)
 
-    print(d.shape)
-    print(c.shape)
-    print(f.shape)
-    print(go.shape)
+    for i in range(10):
+        obs = env.reset()
+        done = False
 
+        while not done:
+            Renderer.show_frame(obs)
 
-def test_simulate_single_game():
-    _, (frames,
-        _) = next(StatefulPongGenerator(
-            32,
-            32,
-            128,
-            stochasticity=0.2,
-        ))
-    print(frames.shape)
+            action = agent(obs)
+            obs, _reward, done, _info = env.step(action)
 
-    Renderer.init_window(150, 150)
-
-    for frame in frames:
-        Renderer.show_frame(frame)
+            if not Renderer.can_render():
+                return
 
 
 if __name__ == '__main__':
-    env = gym.make('DeterministicTwoPlayerPong-50-v0')
-
-    # test_games_generator()
-    test_simulate_single_game()
+    sanity_check()
