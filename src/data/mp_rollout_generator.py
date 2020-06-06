@@ -117,9 +117,8 @@ def preprocessed_mp_generator(
         env = make_preprocessed_env(env_name, frame_size=frame_size)
         return env
 
-    def random_agent_ctor():
-        env = env_ctor()
-        return lambda obs: env.action_space.sample()
+    def random_agent_ctor(env):
+        return lambda _obs: env.action_space.sample()
 
     if agent_ctor is None:
         agent_ctor = random_agent_ctor
@@ -149,7 +148,7 @@ if __name__ == '__main__':
         max_seq_len=128,
         agent_ctor=agent_ctor,
         frame_size=(32, 32),
-        num_processes=16,
+        num_processes=15,
     )
 
     for i in range(100000):

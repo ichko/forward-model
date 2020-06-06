@@ -132,8 +132,27 @@ class PONG:
         self.update_ball(self.ball)
 
 
+# This generates action mappings
+# From milti-discrete([3, 3]) to discrete(9) and the reversed
+def _generate_action_mappers():
+    multi_to_single = dict()
+    single_to_multi = dict()
+    idx = 0
+    for y in range(-1, 2):
+        for x in range(-1, 2):
+            multi_to_single[x, y] = idx
+            single_to_multi[idx] = x, y
+            idx += 1
+
+    return multi_to_single, single_to_multi
+
+
+ACTION_MAP_MULTI_TO_SINGLE, ACTION_MAP_SINGLE_TO_MULTI = \
+    _generate_action_mappers()
+
+
 class PONGGym(gym.Env):
-    metadata = {'render.modes': ['human', 'rgb_array']}
+    metadata = {'render.modes': ['rgb_array']}
 
     def __init__(self, W, H, direction):
         super().__init__()
@@ -145,9 +164,7 @@ class PONGGym(gym.Env):
 
     def step(self, action):
         if not self.pong.game_over:
-            # Actions are [0:2, 0:2]
-            # We center them in [-1:1,-1:1]
-            action = np.array(action) - 1
+            action = ACTION_MAP_SINGLE_TO_MULTI[action]
             self.pong.tick(*action)
 
         obs = self.render('rgb_array')
@@ -157,7 +174,8 @@ class PONGGym(gym.Env):
         return obs, reward, done, {}
 
     def reset(self):
-        self.action_space = spaces.MultiDiscrete(nvec=[3, 3])
+        # 9 actions, 3 for each player - [up, stay, down]
+        self.action_space = spaces.Discrete(9)
 
         self.observation_space = spaces.Box(
             low=0,
@@ -195,7 +213,7 @@ class PONGGym(gym.Env):
                 Renderer.init_window(self.W, self.H)
             Renderer.show_frame(obs)
 
-        return obs
+        return obs * 255
 
 
 class PONGAgent:
@@ -227,8 +245,8 @@ class PONGAgent:
             uniform(0, 1) < self.stochasticity else \
             copysign(1, right_dir)
 
-        # from -1:1 to 0:2 intervals
-        return [left_plank_dir + 1, right_plank_dir + 1]
+        action = ACTION_MAP_MULTI_TO_SINGLE[left_plank_dir, right_plank_dir]
+        return action
 
 
 # REGISTER PONG ENVIRONMENTS
@@ -236,7 +254,7 @@ def pong_ctor(W, H, direction):
     return lambda: PONGGym(W, H, direction)
 
 
-for screen_size in [40, 50, 64, 128]:
+for screen_size in [32, 40, 50, 64]:
     register_gym_env(
         id=f'DeterministicTwoPlayerPong-{screen_size}-v0',
         cls=pong_ctor(screen_size, screen_size, 0.3),
@@ -251,11 +269,11 @@ for screen_size in [40, 50, 64, 128]:
 def sanity_check():
     import gym
 
-    env = gym.make('DeterministicTwoPlayerPong-50-v0')
+    env = gym.make('DeterministicTwoPlayerPong-64-v0')
     agent = PONGAgent(env, stochasticity=0.0)
-    Renderer.init_window(550, 550)
+    Renderer.init_window(200, 200)
 
-    for i in range(10):
+    for _i in range(10):
         obs = env.reset()
         done = False
 
