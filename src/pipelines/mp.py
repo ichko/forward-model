@@ -44,6 +44,8 @@ def get_model(hparams):
 def get_data_generator(hparams):
     from src.data.mp_rollout_generator import preprocessed_mp_generator
 
+    num_processes = 15
+
     def pong_generator():
         import random
         from src.data.pong import PONGAgent
@@ -58,7 +60,7 @@ def get_data_generator(hparams):
             max_seq_len=hparams.max_seq_len,
             agent_ctor=agent_ctor,
             frame_size=hparams.frame_size,
-            num_processes=15,
+            num_processes=num_processes,
         )
 
     if hparams.env_name == 'DeterministicTwoPlayerPong-64-v0':
@@ -71,7 +73,7 @@ def get_data_generator(hparams):
         max_seq_len=hparams.min_seq_len,
         agent_ctor=None,  # random agent
         frame_size=hparams.env_name,
-        num_processes=16,
+        num_processes=num_processes,
     )
 
 
