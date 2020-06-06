@@ -42,9 +42,10 @@ def mp_generator(
     num_processes=8,
 ):
     def init():
-        env = env_ctor()
-        agent = agent_ctor()
         while True:
+            env = env_ctor()
+            agent = agent_ctor(env)
+
             yield get_episode(
                 env=env,
                 agent=agent,
@@ -74,7 +75,7 @@ def mp_generator(
             'terminals': terminals,
         }
 
-    def generator():
+    def local_process_generator():
         while True:
             episode = mpb.try_pop()
             if episode is not None:
@@ -83,7 +84,7 @@ def mp_generator(
             if len(local_process_buffer) >= bs:
                 yield get_batch()
 
-    generator_instance = generator()
+    generator_instance = local_process_generator()
 
     class StatefulGenerator:
         def __init__(self):
@@ -101,11 +102,12 @@ def mp_generator(
     return StatefulGenerator()
 
 
-def random_mp_generator(
+def preprocessed_mp_generator(
     env_name,
     bs,
     min_seq_len,
     max_seq_len,
+    agent_ctor=None,
     frame_size=None,
     num_processes=16,
 ):
@@ -115,11 +117,14 @@ def random_mp_generator(
         env = make_preprocessed_env(env_name, frame_size=frame_size)
         return env
 
-    def agent_ctor():
+    def random_agent_ctor():
         env = env_ctor()
         return lambda obs: env.action_space.sample()
 
-    generator = mp_generator(
+    if agent_ctor is None:
+        agent_ctor = random_agent_ctor
+
+    return mp_generator(
         bs=bs,
         env_ctor=env_ctor,
         agent_ctor=agent_ctor,
@@ -129,18 +134,22 @@ def random_mp_generator(
         num_processes=num_processes,
     )
 
-    return generator
-
 
 if __name__ == '__main__':
-    import sneks
+    import pong
+    import random
 
-    generator = random_mp_generator(
-        env_name='snek-rgb-16-v1',
+    def agent_ctor(env):
+        return pong.PONGAgent(env, stochasticity=random.random())
+
+    generator = preprocessed_mp_generator(
+        env_name='DeterministicTwoPlayerPong-50-v0',
         bs=32,
-        min_seq_len=50,
-        max_seq_len=64,
+        min_seq_len=64,
+        max_seq_len=128,
+        agent_ctor=agent_ctor,
         frame_size=(32, 32),
+        num_processes=16,
     )
 
     for i in range(100000):
