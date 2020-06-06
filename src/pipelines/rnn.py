@@ -1,6 +1,6 @@
 import sys
 
-from src.models.rnn_conv_ae import sanity_check, make_model
+from src.models.rnn_deconvolve import sanity_check, make_model
 from src.data.mp_rollout_generator import random_mp_generator
 from src.utils.trainer import fit_generator
 from src.utils import add_virtual_display
@@ -12,8 +12,8 @@ import gym
 import sneks
 
 hparams = argparse.Namespace(
-    # env_name='CubeCrash-v0',
-    env_name='snek-rgb-16-v1',
+    env_name='CubeCrash-v0',
+    # env_name='snek-rgb-16-v1',
     # env_name='CartPole-v1',
     # env_name='LunarLander-v2',
     precondition_size=2,
@@ -25,7 +25,7 @@ hparams = argparse.Namespace(
     lr=0.0001,
     device='cuda',
     max_seq_len=32,
-    min_seq_len=16,
+    min_seq_len=2,
 )
 
 
@@ -53,6 +53,7 @@ def get_data_generator(env, agent=None):
         min_seq_len=hparams.min_seq_len,
         max_seq_len=hparams.max_seq_len,
         frame_size=hparams.frame_size,
+        num_processes=16,
     )
 
 

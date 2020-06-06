@@ -280,10 +280,10 @@ def test_games_generator():
 def test_simulate_single_game():
     _, (frames,
         _) = next(StatefulPongGenerator(
-            64,
-            64,
+            32,
+            32,
             128,
-            stochasticity=0.9,
+            stochasticity=0.2,
         ))
     print(frames.shape)
 

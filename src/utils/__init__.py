@@ -31,7 +31,7 @@ class PreprocessedEnv:
     def __init__(
         self,
         env,
-        obs_scalar=255,
+        obs_scalar=256,
         channel_first=True,
         use_rendering=True,
         frame_size=None,

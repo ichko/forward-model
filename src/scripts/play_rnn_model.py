@@ -18,6 +18,7 @@ def main():
     model = get_model(hparams, env)
     model.eval()
     model.preload_weights()
+    model = model.to('cuda')
 
     obs = env.reset()
     precondition = []
@@ -37,31 +38,31 @@ def main():
 
     Renderer.init_window(900, 300)
 
-    print(env.action_space)
+    # print(env.action_space)
 
-    with keyboard() as kb:
-        while not done:
-            time.sleep(1 / 5)
-        
-            frame = np.concatenate([obs, pred_obs, obs - pred_obs], axis=2)
-            frame = (frame * 255).astype(np.uint8)
-            frame = frame.transpose(1, 2, 0)
+    # with keyboard() as kb:
+    while not done:
+        # time.sleep(1 / 5)
+    
+        frame = np.concatenate([obs, pred_obs, abs(obs - pred_obs)], axis=2)
+        frame = (frame * 255).astype(np.uint8)
+        frame = frame.transpose(1, 2, 0)
 
-            print(frame.shape, frame.min(), frame.max())
-            Renderer.show_frame(frame)
+        # print(frame.shape, frame.min(), frame.max())
+        Renderer.show_frame(frame)
 
-            action = -1
-            while action < 0:
-                if kb.is_pressed('w'): action = 0
-                if kb.is_pressed('d'): action = 1
-                if kb.is_pressed('s'): action = 2
-                if kb.is_pressed('a'): action = 3
+        # action = -1
+        # while action < 0:
+        #     if kb.is_pressed('w'): action = 0
+        #     if kb.is_pressed('d'): action = 1
+        #     if kb.is_pressed('s'): action = 2
+        #     if kb.is_pressed('a'): action = 3
 
-            # action = env.action_space.sample()
-            print('ACTION', action)
+        action = env.action_space.sample()
+        print('ACTION', action)
 
-            obs, reward, done, _info = env.step(action)
-            pred_obs = model.step(action)
+        obs, reward, done, _info = env.step(action)
+        pred_obs = model.step(action)
 
     # cv2.namedWindow(win_name, cv2.WINDOW_NORMAL)
     # cv2.resizeWindow(win_name, 900, 300)
@@ -74,4 +75,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    while True:
+        main()

@@ -27,25 +27,25 @@ class Model(tu.BaseModule):
         self.num_rnn_layers = num_rnn_layers
 
         self.precondition_encoder = nn.Sequential(
-            tu.conv_encoder(sizes=(6, 32, 64, 32)),
-            tu.reshape(-1, 32 * 4 * 4),
-            tu.dense(i=32 * 4 * 4, o=rnn_hidden_size * num_rnn_layers, a=None),
+            tu.conv_encoder(sizes=(6, 32, 64, 128, 128)),
+            tu.reshape(-1, 128 * 2 * 2),
+            tu.dense(i=512, o=rnn_hidden_size * num_rnn_layers, a=None),
         )
 
         self.frames_encoder = tu.time_distribute(
             nn.Sequential(
-                nn.Dropout(p=0.5),
-                tu.conv_encoder(sizes=(3, 32, 64, 32)),
-                tu.reshape(-1, 32 * 4 * 4),
-                tu.dense(i=32 * 4 * 4, o=frame_encoding_size, a=None),
+                nn.Dropout(p=0.6),
+                tu.conv_encoder(sizes=(3, 32, 64, 128, 128)),
+                tu.reshape(-1, 128 * 2 * 2),
+                tu.dense(i=128 * 2 * 2, o=frame_encoding_size, a=None),
             ))
 
         self.frames_decoder = tu.time_distribute(
             nn.Sequential(
                 nn.Dropout(p=0.2),
-                tu.dense(i=rnn_hidden_size, o=32 * 4 * 4),
-                tu.reshape(-1, 32, 4, 4),
-                tu.conv_decoder(sizes=(32, 64, 32, 3)),
+                tu.dense(i=rnn_hidden_size, o=128 * 2 * 2),
+                tu.reshape(-1, 128, 2, 2),
+                tu.conv_decoder(sizes=(128, 128, 64, 32, 3)),
                 nn.Sigmoid(),
             ))
 
