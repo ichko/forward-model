@@ -81,15 +81,21 @@ def persist(func, path, override=False):
     return result
 
 
-def add_virtual_display():
-    # Necessary to display cartpole and other envs headlessly
-    # https://stackoverflow.com/a/47968021
-    from pyvirtualdisplay.smartdisplay import SmartDisplay
+# This is necessary for some openai gym environments rendering
+def add_virtual_display_if_non_present():
+    if 'DISPLAY' not in os.environ:
+        # Necessary to display cartpole and other envs headlessly
+        # https://stackoverflow.com/a/47968021
+        from pyvirtualdisplay.smartdisplay import SmartDisplay
 
-    display = SmartDisplay(visible=0, size=(1400, 900))
-    display.start()
+        display = SmartDisplay(visible=0, size=(1400, 900))
+        display.start()
+        display = os.environ['DISPLAY']
 
-    # print(os.environ['DISPLAY'])
+        print(f'>> ADDED VIRTUAL DISPLAY [{display}]')
+
+
+add_virtual_display_if_non_present()
 
 
 def try_colored_traceback():
