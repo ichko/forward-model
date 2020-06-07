@@ -250,26 +250,30 @@ class PONGAgent:
 
 
 # REGISTER PONG ENVIRONMENTS
-def pong_ctor(W, H, direction):
-    return lambda: PONGGym(W, H, direction)
+def pong_ctor(W, H):
+    return lambda: PONGGym(W, H, direction=0.3)
+
+
+def random_pong_ctor(W, H):
+    return lambda: PONGGym(W, H, uniform(0, 2 * pi))
 
 
 for screen_size in [32, 40, 50, 64]:
     register_gym_env(
         id=f'DeterministicTwoPlayerPong-{screen_size}-v0',
-        cls=pong_ctor(screen_size, screen_size, 0.3),
+        cls=pong_ctor(screen_size, screen_size),
     )
 
     register_gym_env(
         id=f'TwoPlayerPong-{screen_size}-v0',
-        cls=pong_ctor(screen_size, screen_size, uniform(0, 2 * pi)),
+        cls=random_pong_ctor(screen_size, screen_size),
     )
 
 
 def sanity_check():
     import gym
 
-    env = gym.make('DeterministicTwoPlayerPong-64-v0')
+    env = gym.make('TwoPlayerPong-40-v0')
     agent = PONGAgent(env, stochasticity=0.0)
     Renderer.init_window(200, 200)
 

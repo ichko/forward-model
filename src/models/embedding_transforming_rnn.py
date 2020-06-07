@@ -141,7 +141,7 @@ class Model(tu.BaseModule):
         if loss.requires_grad:
             self.optim.zero_grad()
             loss.backward()
-            T.nn.utils.clip_grad_norm_(self.parameters(), 0)
+            T.nn.utils.clip_grad_norm_(self.parameters(), 1)
             self.optim.step()
 
         return loss, {'y': y_true, 'y_pred': y_pred}
@@ -185,7 +185,7 @@ def sanity_check():
 
     print(f'OUT FRAMES SHAPE {out_frames.shape}')
 
-    model.configure_optim(lr=0.00000001)
+    model.configure_optim(lr=0.0001)
     batch = {
         'actions': actions,
         'observations': frames,

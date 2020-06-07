@@ -43,7 +43,8 @@ class WAndBLogger:
         wandb.log(dict)
 
     def log_info(self, info, prefix='train'):
-        wandb.log({'lr_scheduler': self.model.scheduler.get_lr()[0]})
+        if hasattr(self.model, 'scheduler'):
+            wandb.log({'lr_scheduler': self.model.scheduler.get_lr()[0]})
 
         num_log_images = 2
         y = info['y'][:num_log_images].detach().cpu() * 255
