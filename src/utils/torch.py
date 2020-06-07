@@ -20,7 +20,7 @@ def one_hot(t, one_hot_size=None):
     return hot
 
 
-def cat_channels(t):
+def cat_channels():
     """
         Concatenate number of channels in a single tensor
         Converts tensor with shape:
@@ -28,9 +28,13 @@ def cat_channels(t):
         to tensor with shape:
             (bs, num_channels * channel_size, h, w)
     """
-    shape = t.size()
-    cat_dim_size = shape[1] * shape[2]
-    return t.view(-1, cat_dim_size, *shape[3:])
+    class CatChannels(nn.Module):
+        def forward(self, t):
+            shape = t.size()
+            cat_dim_size = shape[1] * shape[2]
+            return t.view(-1, cat_dim_size, *shape[3:])
+
+    return CatChannels()
 
 
 def count_parameters(module):
@@ -75,7 +79,7 @@ class BaseModule(nn.Module):
         return next(self.parameters()).device
 
 
-def batch_conv(x, w, p=0):
+def batch_conv(x, w, p=0, s=1):
     # SRC - https://discuss.pyT.org/t/apply-different-convolutions-to-a-batch-of-tensors/56901/2
 
     batch_size = x.size(0)
@@ -86,6 +90,8 @@ def batch_conv(x, w, p=0):
         w.reshape(batch_size * w.size(1), w.size(2), w.size(3), w.size(4)),
         groups=batch_size,
         padding=p,
+        stride=s,
+        dilation=1,
     )
     o = o.reshape(batch_size, output_size, o.size(2), o.size(3))
 
@@ -143,14 +149,16 @@ def deconv_block(i, o, ks, s, p, a=get_activation(), d=1, bn=True):
     return nn.Sequential(*block)
 
 
-def conv_blocks(conv_cell, sizes, ks, a):
+def conv_blocks(conv_cell, sizes, ks, a=get_activation(), s=2, p=None):
+    p = ks // 2 - 1 if p is None else p
+
     layers = [
         conv_cell(
             i=sizes[l],
             o=sizes[l + 1],
             ks=ks,
-            s=2,
-            p=ks // 2 - 1,
+            s=s,
+            p=p,
             a=(None if l == len(sizes) - 2 else a),
             d=1,
             # batch norm everywhere except the last layer
@@ -163,6 +171,10 @@ def conv_blocks(conv_cell, sizes, ks, a):
 
 def conv_encoder(sizes, ks=4, a=get_activation()):
     return conv_blocks(conv_block, sizes, ks, a)
+
+
+def conv_transform(sizes, ks=5, a=get_activation()):
+    return conv_blocks(conv_block, sizes, ks=ks, s=1, p=ks // 2)
 
 
 def conv_decoder(sizes, ks=4, a=get_activation()):
@@ -250,12 +262,13 @@ def time_distribute_decorator(module):
             super().__init__()
             self.module = module
 
-        def forward(self, input):
-            bs = input.size(0)
-            seq_len = input.size(1)
-            input = input.reshape(-1, *input.shape[2:])
+        def forward(self, *inputs):
+            inp = inputs[0]
+            bs = inp.size(0)
+            seq_len = inp.size(1)
+            inputs = [i.reshape(-1, *i.shape[2:]) for i in inputs]
 
-            out = module(input)
+            out = module(*inputs)
             out = out.view(bs, seq_len, *out.shape[1:])
 
             return out
@@ -289,6 +302,44 @@ def time_distribute_31D(module):
             return out.reshape(bs, seq_len, out.size(1))
 
     return T.jit.script(TimeDistributed())
+
+
+class KernelEmbedding(nn.Module):
+    # kernel_sizes - (in, out, ks)[]
+    def __init__(self, num_embeddings, kernel_sizes):
+        super().__init__()
+
+        self.kernel_shapes = [[out, inp, ks, ks]
+                              for inp, out, ks in kernel_sizes]
+
+        # self.batch_norms = nn.Sequential(
+        #     *[nn.BatchNorm2d(k[0]) for k in self.kernel_shapes])
+
+        self.kernels_flat = [np.prod(k) for k in self.kernel_shapes]
+
+        self.embedding = nn.Embedding(
+            num_embeddings=num_embeddings,
+            embedding_dim=np.sum(self.kernels_flat),
+        )
+
+    def forward(self, tensor, kernel_indexes):
+        emb = self.embedding(kernel_indexes)
+        kernels = extract_tensors(emb, self.kernel_shapes)
+
+        transformed_tensor = tensor
+        for i, k in enumerate(kernels):
+            ks = self.kernel_shapes[i]
+            transformed_tensor = batch_conv(
+                transformed_tensor,
+                k,
+                p=ks[-1] // 2,
+                s=1,
+            )
+            # TODO Should we batch-norm?
+            # transformed_frame = self.batch_norms[0](transformed_frame)
+            transformed_tensor = T.tanh(transformed_tensor)
+
+        return transformed_tensor
 
 
 if __name__ == '__main__':

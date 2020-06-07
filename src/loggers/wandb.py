@@ -51,7 +51,8 @@ class WAndBLogger:
         y_pred = info['y_pred'][:num_log_images].detach().cpu() * 255
         diff = abs(y - y_pred)
 
-        wrapper_cls = wandb.Video if self.type == 'video' else wandb.Image
+        wandb_vid_ctor = lambda x: wandb.Video(x, fps=20)
+        wrapper_cls = wandb_vid_ctor if self.type == 'video' else wandb.Image
 
         wandb.log({
             f'{prefix}_y': [wrapper_cls(i) for i in y],
