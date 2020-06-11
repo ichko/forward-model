@@ -1,5 +1,7 @@
 # Forward model
 
+Previous notebooks and experiments can be found [here](https://github.com/ichko/differentiable-simulation).
+
 Experiments and models for my masters thesis on learning environment dynamics from observations.
 
 ## Notes and tasks
