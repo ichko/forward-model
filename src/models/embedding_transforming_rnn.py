@@ -8,45 +8,33 @@ import torch.nn.functional as F
 
 
 class RNNCell(nn.Module):
-    def __init__(self, hidden_channels, num_actions):
+    def __init__(self, hidden, num_actions):
         super().__init__()
 
-        self.kernel_shapes = [
-            (32, hidden_channels, 5, 5),
-            (64, 32, 5, 5),
-            (32, 64, 5, 5),
-            (hidden_channels, 32, 5, 5),
-        ]
+        self.update = nn.Sequential(
+            tu.KernelEmbedding(
+                num_actions,
+                ks=5,
+                channels=[hidden, 64, hidden],
+            ),
+            nn.Sigmoid(),
+        )
 
-        # self.batch_norms = nn.Sequential(
-        #     *[nn.BatchNorm2d(k[0]) for k in self.kernel_shapes])
-
-        self.kernels_flat = [np.prod(k) for k in self.kernel_shapes]
-
-        self.action_embedding = nn.Embedding(
-            num_embeddings=num_actions,
-            embedding_dim=np.sum(self.kernels_flat),
+        self.new_state = nn.Sequential(
+            tu.KernelEmbedding(
+                num_actions,
+                ks=5,
+                channels=[hidden, 32, hidden],
+            ),
+            nn.Tanh(),
         )
 
     def forward(self, x):
         action, state = x
 
-        action_vec = self.action_embedding(action)
-
-        kernels = tu.extract_tensors(action_vec, self.kernel_shapes)
-
-        transformed_state = state
-        for i, k in enumerate(kernels):
-            ks = self.kernel_shapes[i]
-            transformed_state = tu.batch_conv(
-                transformed_state,
-                k,
-                p=ks[-1] // 2,
-                s=1,
-            )
-            # TODO Should we batch-norm?
-            # transformed_frame = self.batch_norms[0](transformed_frame)
-            transformed_state = T.tanh(transformed_state)
+        update = self.update([state, action])
+        new_state = self.new_state([state, action])
+        transformed_state = state * update + new_state * (1 - update)
 
         return transformed_state
 
@@ -112,7 +100,7 @@ class Model(tu.BaseModule):
             state = self.cell([action, state])
             out_states[:, i] = state
 
-        out_frames = self.state_to_frame(out_states)
+        out_frames = T.sigmoid(out_states[:, :, -3:])
 
         return out_frames
 
@@ -141,7 +129,7 @@ class Model(tu.BaseModule):
         if loss.requires_grad:
             self.optim.zero_grad()
             loss.backward()
-            T.nn.utils.clip_grad_norm_(self.parameters(), 1)
+            T.nn.utils.clip_grad_norm_(self.parameters(), 0.1)
             self.optim.step()
 
         return loss, {'y': y_true, 'y_pred': y_pred}
