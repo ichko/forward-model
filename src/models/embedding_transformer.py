@@ -73,6 +73,20 @@ class EmbeddingTransformer(tu.BaseModule):
     def configure_optim(self, lr):
         self.optim = T.optim.Adam(self.parameters(), lr=lr)
 
+    def render(self, _mode='rgb_array'):
+        return self.frame
+
+    def reset(self, init_frame):
+        self.frame = init_frame
+        return init_frame
+
+    def step(self, action):
+        self.frame = self.forward(
+            [[action]],
+            [[self.frame]],
+        )[0, 0].detach().cpu().numpy()
+        return self.frame
+
 
 def make_model(num_actions):
     return EmbeddingTransformer(num_actions=num_actions)
