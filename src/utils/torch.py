@@ -149,9 +149,7 @@ def deconv_block(i, o, ks, s, p, a=get_activation(), d=1, bn=True):
     return nn.Sequential(*block)
 
 
-def conv_blocks(conv_cell, sizes, ks, a=get_activation(), s=2, p=None):
-    p = ks // 2 - 1 if p is None else p
-
+def seq_of_blocks(conv_cell, sizes, ks, a, s, p):
     layers = [
         conv_cell(
             i=sizes[l],
@@ -170,15 +168,43 @@ def conv_blocks(conv_cell, sizes, ks, a=get_activation(), s=2, p=None):
 
 
 def conv_encoder(sizes, ks=4, a=get_activation()):
-    return conv_blocks(conv_block, sizes, ks, a)
+    return seq_of_blocks(conv_block, sizes, ks, a, s=2, p=ks // 2 - 1)
 
 
 def conv_transform(sizes, ks=5, a=get_activation()):
-    return conv_blocks(conv_block, sizes, ks=ks, s=1, p=ks // 2)
+    return seq_of_blocks(conv_block, sizes, ks, a, s=1, p=ks // 2)
 
 
 def conv_decoder(sizes, ks=4, a=get_activation()):
-    return conv_blocks(deconv_block, sizes, ks, a)
+    return seq_of_blocks(deconv_block, sizes, ks, a, s=2, p=ks // 2 - 1)
+
+
+def conv_to_flat(input_size, channel_sizes, out_size, k, a=get_activation()):
+    class ConvEncoder(nn.Module):
+        def __init__(self):
+            input_channels = channel_sizes[0]
+
+            self.encoder = conv_encoder(channel_sizes, k, a)
+            self.encoder_out_shape = compute_conv_output(
+                self.encoder,
+                (input_channels, *input_size),
+            )
+            self.flat_encoder_out_size = np.prod(self.encoder_out_shape[-3:])
+            self.encoded_to_flat = nn.Sequential(
+                nn.Flatten(),
+                a(),
+                dense(self.flat_encoder_out_size, out_size),
+            )
+
+            self.net = nn.Sequential(
+                self.encoder,
+                self.encoded_to_flat,
+            )
+
+        def forward(self, x):
+            return self.net(x)
+
+    return ConvEncoder()
 
 
 def compute_conv_output(net, frame_shape):
@@ -306,11 +332,12 @@ def time_distribute_31D(module):
 
 class KernelEmbedding(nn.Module):
     # kernel_sizes - (in, out, ks)[]
-    def __init__(self, num_embeddings, kernel_sizes):
+    def __init__(self, num_embeddings, ks, channels, a=get_activation()):
         super().__init__()
 
-        self.kernel_shapes = [[out, inp, ks, ks]
-                              for inp, out, ks in kernel_sizes]
+        self.activation = a
+        self.kernel_shapes = [[o, i, ks, ks]
+                              for i, o in zip(channels, channels[1:])]
 
         # self.batch_norms = nn.Sequential(
         #     *[nn.BatchNorm2d(k[0]) for k in self.kernel_shapes])
@@ -322,7 +349,9 @@ class KernelEmbedding(nn.Module):
             embedding_dim=np.sum(self.kernels_flat),
         )
 
-    def forward(self, tensor, kernel_indexes):
+    def forward(self, x):
+        tensor, kernel_indexes = x
+
         emb = self.embedding(kernel_indexes)
         kernels = extract_tensors(emb, self.kernel_shapes)
 
@@ -337,7 +366,8 @@ class KernelEmbedding(nn.Module):
             )
             # TODO Should we batch-norm?
             # transformed_frame = self.batch_norms[0](transformed_frame)
-            transformed_tensor = T.tanh(transformed_tensor)
+            if i != len(kernels) - 1:
+                transformed_tensor = self.activation(transformed_tensor)
 
         return transformed_tensor
 
