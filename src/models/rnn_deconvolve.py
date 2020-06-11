@@ -35,30 +35,14 @@ class Model(tu.BaseModule):
         self.num_precondition_frames = num_precondition_frames
         self.num_rnn_layers = num_rnn_layers
 
-        inp = self.precondition_channels
         self.compute_precondition = nn.Sequential(
-            nn.Dropout(p=0.8),
-            tu.conv_block(i=inp, o=32, ks=4, s=2, p=1, d=1),
-            tu.conv_block(i=32, o=64, ks=4, s=2, p=1, d=1),
-            nn.Dropout(p=0.5),
-            tu.conv_block(i=64, o=64, ks=4, s=2, p=1, d=1),
-            tu.conv_block(i=64, o=128, ks=4, s=2, p=1, d=1),
-            nn.Dropout(p=0.5),
-            tu.conv_block(i=128, o=256, ks=4, s=2, p=1, d=1, bn=False),
-        )
-
-        self.precondition_out = tu.compute_conv_output(
-            self.compute_precondition,
-            (self.precondition_channels, *frame_size),
-        )
-        self.flat_precondition_size = np.prod(self.precondition_out[-3:])
-
-        self.precondition_frame_to_rnn = nn.Sequential(
-            nn.Flatten(),
-            tu.dense(
-                self.flat_precondition_size,
-                rnn_hidden_size * num_rnn_layers,
+            tu.cat_channels(),
+            tu.conv_to_flat(
+                input_size=frame_size,
+                channel_sizes=[self.precondition_channels, 32, 64, 64, 128],
+                out_size=rnn_hidden_size * num_rnn_layers,
             ),
+            nn.Tanh(),
         )
 
         self.rnn = nn.GRU(
@@ -66,7 +50,6 @@ class Model(tu.BaseModule):
             hidden_size=rnn_hidden_size,
             num_layers=num_rnn_layers,
             batch_first=True,
-            dropout=0.6,
         )
 
         self.action_embedding = nn.Embedding(
@@ -78,21 +61,8 @@ class Model(tu.BaseModule):
             nn.Sequential(
                 tu.dense(i=rnn_hidden_size, o=256),
                 tu.reshape(-1, 256, 1, 1),
-                nn.Dropout(p=0.5),
-                tu.deconv_block(i=256, o=128, ks=5, s=2, p=1, d=1),
-                tu.deconv_block(i=128, o=64, ks=5, s=2, p=1, d=1),
-                nn.Dropout(p=0.3),
-                tu.deconv_block(i=64, o=32, ks=5, s=2, p=2, d=2),
-                tu.deconv_block(
-                    i=32,
-                    o=3,
-                    ks=4,
-                    s=2,
-                    p=2,
-                    d=1,
-                    a=nn.Sigmoid(),
-                    bn=False,
-                ),
+                tu.conv_decoder([256, 128, 64, 64, 3]),
+                nn.Sigmoid(),
             ))
 
     def forward(self, x):
@@ -102,19 +72,13 @@ class Model(tu.BaseModule):
             actions             -> [bs, sequence]
         return -> future frame
         """
-        actions, precondition_frames = x
-
+        actions, frames = x
         actions = T.LongTensor(actions).to(self.device)
-        precondition_frames = T.FloatTensor(precondition_frames) \
-            .to(self.device)
+        frames = T.FloatTensor(frames).to(self.device)
 
-        precondition_frames = precondition_frames.reshape(
-            -1,
-            self.precondition_channels,
-            *self.frame_size[::-1],  # W, H -> H, W
-        )
+        precondition = frames[:, :self.precondition_size]
 
-        rnn_preconditions = self.compute_precondition(precondition_frames)
+        precondition_map = self.compute_precondition(precondition)
         rnn_preconditions = self.precondition_frame_to_rnn(rnn_preconditions)
         rnn_preconditions = T.stack(
             rnn_preconditions.chunk(self.num_rnn_layers, dim=1),
@@ -212,6 +176,8 @@ def sanity_check():
     print(
         f'PRECONDITION FEATURE MAP {rnn.precondition_out} [{rnn.flat_precondition_size}]'
     )
+
+    print(rnn.summary())
 
     precondition_frames = T.randint(
         0,

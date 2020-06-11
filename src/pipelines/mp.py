@@ -18,7 +18,7 @@ hparams = argparse.Namespace(
     # dataset_size=5000,
     frame_size=(32, 32),
     its=1_000_000,
-    bs=2,
+    bs=16,
     log_interval=300,
     lr=0.0001,
     device='cuda',
@@ -28,19 +28,20 @@ hparams = argparse.Namespace(
 
 
 def get_model(hparams):
-    # from src.models.rnn_deconvolve import sanity_check, make_model
+    from src.models.rnn_deconvolve import sanity_check, make_model
     # from src.models.embedding_transforming_rnn import sanity_check, make_model
-    from src.models.embedding_transformer import sanity_check, make_model
+    # from src.models.embedding_transformer import sanity_check, make_model
 
     env = gym.make(hparams.env_name)
 
     model = make_model(
-        # precondition_size=hparams.precondition_size,
-        # frame_size=hparams.frame_size,
-        num_actions=env.action_space.n, )
+        precondition_size=hparams.precondition_size,
+        frame_size=hparams.frame_size,
+        num_actions=env.action_space.n,
+    )
     model.make_persisted(f'.models/{model.name}_{hparams.env_name}.h5')
 
-    sanity_check()
+    # sanity_check()
 
     return model
 
