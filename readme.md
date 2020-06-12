@@ -25,6 +25,17 @@ Experiments and models for my masters thesis on learning environment dynamics fr
 
 - Notes
 
+  - 12.06.2020
+
+    - Update implementation of RNN Deconv
+    - Focus on making RNN deconv work on PONG
+      - WHY RNN Deconv - it is the only model that can model PONG with the current setup of the data pipeline.
+      - Frame transforming models need two frames as context
+      - TODO:
+        [ ] Train and save working RNN Deconv model
+        [ ] Write playing script
+        [ ] Write script for manipulating the latent RNN state and viewing the result?
+
   - 06.06.2020
 
     - Implement pong agent class + action mappings ([3, 3] => 9)
