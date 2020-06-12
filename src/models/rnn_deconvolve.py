@@ -40,6 +40,8 @@ class Model(tu.BaseModule):
             tu.conv_to_flat(
                 input_size=frame_size,
                 channel_sizes=[self.precondition_channels, 32, 64, 64, 128],
+                ks=4,
+                s=2,
                 out_size=rnn_hidden_size * num_rnn_layers,
             ),
             nn.Tanh(),
@@ -61,32 +63,31 @@ class Model(tu.BaseModule):
             nn.Sequential(
                 tu.dense(i=rnn_hidden_size, o=256),
                 tu.reshape(-1, 256, 1, 1),
-                tu.conv_decoder([256, 128, 64, 64, 3]),
+                tu.conv_decoder([256, 128, 64, 64, 32, 3]),
                 nn.Sigmoid(),
             ))
 
     def forward(self, x):
         """
-        x -> (actions, precondition_frames)
-            precondition_frames -> [bs, num_preconditions, 3, H, W]
-            actions             -> [bs, sequence]
+        x -> (actions, frames)
+            actions -> [bs, sequence]
+            frames  -> [bs, seq_len, 3, H, W]
         return -> future frame
         """
         actions, frames = x
         actions = T.LongTensor(actions).to(self.device)
         frames = T.FloatTensor(frames).to(self.device)
 
-        precondition = frames[:, :self.precondition_size]
+        precondition = frames[:, :self.num_precondition_frames]
 
         precondition_map = self.compute_precondition(precondition)
-        rnn_preconditions = self.precondition_frame_to_rnn(rnn_preconditions)
-        rnn_preconditions = T.stack(
-            rnn_preconditions.chunk(self.num_rnn_layers, dim=1),
-            dim=0,
+        precondition_map = tu.prepare_rnn_state(
+            precondition_map,
+            self.num_rnn_layers,
         )
 
         action_vectors = self.action_embedding(actions)
-        rnn_out_vectors, _ = self.rnn(action_vectors, rnn_preconditions)
+        rnn_out_vectors, _ = self.rnn(action_vectors, precondition_map)
         frames = self.deconvolve_to_frame(rnn_out_vectors)
 
         return frames
@@ -173,9 +174,6 @@ def sanity_check():
     ).to('cuda')
 
     print(f'RNN NUM PARAMS {rnn.count_parameters():08,}')
-    print(
-        f'PRECONDITION FEATURE MAP {rnn.precondition_out} [{rnn.flat_precondition_size}]'
-    )
 
     print(rnn.summary())
 

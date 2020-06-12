@@ -149,9 +149,9 @@ def deconv_block(i, o, ks, s, p, a=get_activation(), d=1, bn=True):
     return nn.Sequential(*block)
 
 
-def seq_of_blocks(conv_cell, sizes, ks, a, s, p):
+def stack_conv_blocks(block_ctor, sizes, ks, a, s, p):
     layers = [
-        conv_cell(
+        block_ctor(
             i=sizes[l],
             o=sizes[l + 1],
             ks=ks,
@@ -168,31 +168,39 @@ def seq_of_blocks(conv_cell, sizes, ks, a, s, p):
 
 
 def conv_encoder(sizes, ks=4, a=get_activation()):
-    return seq_of_blocks(conv_block, sizes, ks, a, s=2, p=ks // 2 - 1)
+    return stack_conv_blocks(conv_block, sizes, ks, a, s=2, p=ks // 2 - 1)
 
 
-def conv_transform(sizes, ks=5, a=get_activation()):
-    return seq_of_blocks(conv_block, sizes, ks, a, s=1, p=ks // 2)
+def conv_transform(sizes, ks=5, s=1, a=get_activation()):
+    return stack_conv_blocks(conv_block, sizes, ks, a, s, p=ks // 2)
 
 
 def conv_decoder(sizes, ks=4, a=get_activation()):
-    return seq_of_blocks(deconv_block, sizes, ks, a, s=2, p=ks // 2 - 1)
+    return stack_conv_blocks(deconv_block, sizes, ks, a, s=2, p=ks // 2 - 1)
 
 
-def conv_to_flat(input_size, channel_sizes, out_size, k, a=get_activation()):
+def conv_to_flat(
+    input_size,
+    channel_sizes,
+    out_size,
+    ks=4,
+    s=2,
+    a=get_activation(),
+):
     class ConvEncoder(nn.Module):
         def __init__(self):
-            input_channels = channel_sizes[0]
+            super().__init__()
 
-            self.encoder = conv_encoder(channel_sizes, k, a)
-            self.encoder_out_shape = compute_conv_output(
+            input_channels = channel_sizes[0]
+            self.encoder = conv_transform(channel_sizes, ks, s, a)
+            self.encoder_out_shape = compute_output_shape(
                 self.encoder,
                 (input_channels, *input_size),
             )
             self.flat_encoder_out_size = np.prod(self.encoder_out_shape[-3:])
             self.encoded_to_flat = nn.Sequential(
                 nn.Flatten(),
-                a(),
+                a,
                 dense(self.flat_encoder_out_size, out_size),
             )
 
@@ -207,7 +215,7 @@ def conv_to_flat(input_size, channel_sizes, out_size, k, a=get_activation()):
     return ConvEncoder()
 
 
-def compute_conv_output(net, frame_shape):
+def compute_output_shape(net, frame_shape):
     with T.no_grad():
         t = T.rand(1, *frame_shape)
         out = net(t)
@@ -241,7 +249,6 @@ def mask_sequence(tensor, mask):
     return masked.reshape(initial_shape)
 
 
-@T.jit.script
 def prepare_rnn_state(state, num_rnn_layers):
     """
     RNN cells expect the initial state
@@ -253,7 +260,10 @@ def prepare_rnn_state(state, num_rnn_layers):
     state          -> [bs, state_size]
     rnn_num_layers -> int
     """
-    return T.stack(state.chunk(num_rnn_layers, dim=1), dim=0)
+    return T.stack(
+        state.chunk(T.tensor(num_rnn_layers), dim=1),
+        dim=0,
+    )
 
 
 def time_distribute(module, input=None):

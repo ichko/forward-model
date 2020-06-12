@@ -76,7 +76,7 @@ class RNNAutoEncoder(tu.BaseModule):
         precondition_map = self.precondition_encoder(precondition)
         precondition_map = tu.prepare_rnn_state(
             precondition_map,
-            torch.tensor(self.num_rnn_layers),
+            self.num_rnn_layers,
         )
 
         actions_map = self.action_embeddings(actions)

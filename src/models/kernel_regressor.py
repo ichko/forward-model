@@ -46,7 +46,7 @@ class KernelRegressor(tu.BaseModule):
             ),
         )
 
-        self.precondition_out = tu.compute_conv_output(
+        self.precondition_out = tu.compute_output_shape(
             self.compute_precondition,
             (3, *frame_size),
         )
