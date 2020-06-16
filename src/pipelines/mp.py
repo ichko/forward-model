@@ -18,12 +18,12 @@ hparams = argparse.Namespace(
     # dataset_size=5000,
     frame_size=(32, 32),
     its=1_000_000,
-    bs=16,
+    bs=32,
     log_interval=300,
     lr=0.0001,
     device='cuda',
-    max_seq_len=128,
-    min_seq_len=80,
+    max_seq_len=130,
+    min_seq_len=32,
 )
 
 
