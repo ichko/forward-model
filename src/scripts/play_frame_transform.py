@@ -4,7 +4,7 @@ from src.pipelines.frame_transform import (
     get_model,
     hparams,
 )
-import src.utils.torch as tu
+import src.utils.nn as tu
 
 import time
 

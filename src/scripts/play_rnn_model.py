@@ -2,14 +2,16 @@
 from src.pipelines.mp import get_model,hparams
 from src.data.pong import PONGAgent
 
-import src.utils.torch as tu
-from src.utils import make_preprocessed_env, keyboard
+import src.utils.nn as unn
+from src.utils import make_preprocessed_env
 from src.utils.renderer import Renderer
 
 import time
 
 import numpy as np
 import cv2
+
+from matplotlib import cm
 
 win_name = 'window'
 
@@ -36,31 +38,30 @@ def main():
             raise Exception('env done too early')
 
 
-    pred_obs = model.reset(precondition[-1])
+    pred_obs = model.reset(precondition, precondition_actions)
 
     Renderer.init_window(900, 300)
 
-    agent = PONGAgent(env, stochasticity=0)
+    agent = PONGAgent(env, stochasticity=0.2)
 
     # print(env.action_space)
 
-    # with keyboard() as kb:
     while not done:
         # time.sleep(1 / 5)
     
         frame = np.concatenate([obs, pred_obs, abs(obs - pred_obs)], axis=2)
-        frame = (frame * 255).astype(np.uint8)
+        # frame = (frame * 255).astype(np.uint8)
         frame = frame.transpose(1, 2, 0)
 
-        # print(frame.shape, frame.min(), frame.max())
+        frame = cm.bwr(1 - np.mean(frame, axis=2))[:,:,:3]
         Renderer.show_frame(frame)
 
         # action = -1
         # while action < 0:
-        #     if kb.is_pressed('w'): action = 0
-        #     if kb.is_pressed('d'): action = 1
-        #     if kb.is_pressed('s'): action = 2
-        #     if kb.is_pressed('a'): action = 3
+        #     if is_pressed('w'): action = 0
+        #     if is_pressed('d'): action = 1
+        #     if is_pressed('s'): action = 2
+        #     if is_pressed('a'): action = 3
 
         action = agent(obs)
         print('ACTION', action)

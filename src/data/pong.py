@@ -249,6 +249,12 @@ class PONGAgent:
         return action
 
 
+# class PONGUserAgent:
+#     def __call__(self, _obs):
+#         action = ACTION_MAP_MULTI_TO_SINGLE[left_plank_dir, right_plank_dir]
+#         return action
+
+
 # REGISTER PONG ENVIRONMENTS
 def pong_ctor(W, H):
     return lambda: PONGGym(W, H, direction=0.3)

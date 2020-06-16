@@ -5,7 +5,7 @@ from src.pipelines.rnn import (
     get_data_generator,
     hparams,
 )
-import src.utils.torch as tu
+import src.utils.nn as tu
 
 import time
 

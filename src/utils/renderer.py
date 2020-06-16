@@ -5,7 +5,7 @@ import cv2
 WIN_NAME = 'WINDOW'
 
 
-def get_pressed_key():
+def is_pressed(key):
     special = {
         32: 'space',
         81: 'left',
@@ -14,9 +14,10 @@ def get_pressed_key():
         84: 'down',
     }
 
-    key = cv2.waitKey(33)
+    k = cv2.waitKey(33)
+    char = special[k] if k in special else chr(k) if k > 0 else -1
 
-    return special[key] if key in special else chr(key) if key > 0 else -1
+    return char == key
 
 
 class Renderer:
@@ -67,7 +68,7 @@ class Renderer:
 
     @classmethod
     def can_render(cls):
-        end = get_pressed_key() == 'q'
+        end = is_pressed('q')
 
         if end:
             cv2.destroyWindow(WIN_NAME)

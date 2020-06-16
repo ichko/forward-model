@@ -1,4 +1,4 @@
-import src.utils.torch as tu
+import src.utils.nn as tu
 
 import numpy as np
 
