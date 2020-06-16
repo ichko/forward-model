@@ -89,9 +89,9 @@ class Model(tu.BaseModule):
 
         self.deconvolve_to_frame = tu.time_distribute(
             nn.Sequential(
-                tu.dense(i=rnn_hidden_size, o=512),
-                tu.reshape(-1, 512, 1, 1),
-                tu.conv_decoder([512, 256, 128, 64, 16, 3]),
+                tu.dense(i=rnn_hidden_size, o=256),
+                tu.reshape(-1, 256, 1, 1),
+                tu.conv_decoder([256, 128, 64, 32, 16, 3]),
                 nn.Sigmoid(),
             ))
 
