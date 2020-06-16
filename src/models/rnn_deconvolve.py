@@ -97,12 +97,15 @@ class Model(tu.BaseModule):
 
     def forward(self, x):
         """
-        x -> (actions, frames)
+        x -> (actions, precondition)
             actions -> [bs, sequence]
             precondition  -> [bs, preconf_size, 3, H, W]
         return -> future frame
         """
         actions, precondition = x
+
+        precondition = T.FloatTensor(precondition).to(self.device)
+        actions = T.LongTensor(actions).to(self.device)
 
         precondition_map = self.compute_precondition(precondition)
         action_vectors = self.action_embedding(actions)
@@ -135,11 +138,10 @@ class Model(tu.BaseModule):
         observations = batch['observations']
         terminals = batch['terminals']
 
-        actions = T.LongTensor(actions).to(self.device)
         actions = actions[:, self.num_precondition_frames - 1:-1]
 
-        observations = T.FloatTensor(observations).to(self.device)
         precondition = observations[:, :self.num_precondition_frames]
+        observations = T.FloatTensor(observations).to(self.device)
 
         terminals = T.BoolTensor(terminals).to(self.device)
         terminals = terminals[:, self.num_precondition_frames:]
@@ -187,7 +189,7 @@ def sanity_check():
     num_precondition_frames = 2
     frame_size = (32, 32)
     num_actions = 3
-    max_seq_len = 30
+    max_seq_len = 32
     bs = 32
 
     model = make_model(

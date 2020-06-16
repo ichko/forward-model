@@ -1,8 +1,15 @@
 import torch as T
 import torch.nn as nn
+import torch.functional as F
+
+SEQ_DIM = 1
 
 
-def dilate_rnn(cell, skip):
+def pad_seq(t, skip):
+    pass
+
+
+def dilate_rnn(cell, skip, autopad=True):
     class DRNN(nn.Module):
         def __init__(self):
             super().__init__()
@@ -10,11 +17,28 @@ def dilate_rnn(cell, skip):
             self.skip = skip
 
         def forward(self, x, state=None):
-            skipped = seq_skip(x, self.skip)
+            x_input = x
+            should_pad = x.size(SEQ_DIM) % self.skip != 0
+
+            if autopad and should_pad:
+                pad_shape = list(x.size())
+                seq_pad_size = T.ceil(T.tensor(
+                    x.size(SEQ_DIM) / self.skip)) * self.skip
+                pad_shape[SEQ_DIM] = int(seq_pad_size.item())
+                x_pad = T.zeros(*pad_shape).to(x.device)
+                x_pad[:, :x.size(SEQ_DIM)] = x
+                x_input = x_pad
+
+            skipped = seq_skip(x_input, self.skip)
+
             skipped_rollout, last_state = self.cell(skipped)
             rollout = reverse_seq_skip(skipped_rollout, self.skip)
             # last_state = reverse_seq_skip(last_state, self.skip)
             last_state = None
+
+            if autopad and should_pad:
+                initial_seq_len = x.size(SEQ_DIM)
+                rollout = rollout[:, :initial_seq_len]
 
             return rollout, last_state
 
@@ -27,17 +51,17 @@ def seq_skip(t, skip):
     Example:
         t = torch.arange(16).reshape(4, -1)
         t
-        >>  tensor([[ 0,  1,  2,  3],
-                    [ 4,  5,  6,  7]])
-        
+        >>  tensor([[0, 1, 2, 3],
+                    [4, 5, 6, 7]])
+
         seq_skip(t, skip=2)
-        >>  tensor([[ 0,  2],
-                    [ 1,  3],
-                    [ 4,  6],
-                    [ 5,  7]])
+        >>  tensor([[0, 2],
+                    [1, 3],
+                    [4, 6],
+                    [5, 7]])
     """
     batch_dim = 0
-    seq_dim = 1
+    seq_dim = SEQ_DIM
 
     assert t.shape[seq_dim] % skip == 0, \
         f'seq_dim ({seq_dim}) should be divisible by the skip size ({skip})'
@@ -55,7 +79,7 @@ def seq_skip(t, skip):
 def reverse_seq_skip(skipped, skip):
     """Reverses the transformation of seq_skip"""
     batch_dim = 0
-    seq_dim = 1
+    seq_dim = SEQ_DIM
 
     assert skipped.shape[batch_dim] % skip == 0, \
         f'batch_dim ({batch_dim}) should be divisible by the skip size ({skip})'
@@ -77,6 +101,7 @@ def verify_skip(shape, skip):
     expected = T.rand(shape)
     s = seq_skip(expected, skip)
     actual = reverse_seq_skip(s, skip)
+
     assert T.all(actual == expected)
 
 
