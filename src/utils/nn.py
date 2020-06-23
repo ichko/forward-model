@@ -175,8 +175,8 @@ def conv_transform(sizes, ks=5, s=1, a=get_activation()):
     return stack_conv_blocks(conv_block, sizes, ks, a, s, p=ks // 2)
 
 
-def conv_decoder(sizes, ks=4, a=get_activation()):
-    return stack_conv_blocks(deconv_block, sizes, ks, a, s=2, p=ks // 2 - 1)
+def conv_decoder(sizes, ks=4, s=2, a=get_activation()):
+    return stack_conv_blocks(deconv_block, sizes, ks, a, s=s, p=ks // 2 - 1)
 
 
 def conv_to_flat(
