@@ -25,9 +25,9 @@ class MiltiprocessBuffer:
                 p.terminate()
 
     def try_pop(self):
-        with self.lock:
-            if self.buffer.empty(): return None
-            return self.buffer.get()
+        # with self.lock:
+        if self.buffer.empty(): return None
+        return self.buffer.get()
 
     def pop(self):
         while True:
