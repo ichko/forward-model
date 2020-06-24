@@ -26,7 +26,7 @@ class RNNWrapper(nn.Module):
                 num_layers=num_rnn_layers,
                 batch_first=True,
             ),
-            skip=4,
+            skip=8,
         )
 
     def forward(self, x, state):
@@ -37,16 +37,6 @@ class RNNWrapper(nn.Module):
 
 
 class Model(tu.BaseModule):
-    """
-    Frame preconditioned RNN. Structure:
-        - input: (frame[s], actions)
-        - frame -> representation vector E
-        - E -> place in state of rnn
-        - actions + rnn -> output
-        - output -> de_convolve -> frame sequence
-    Model assumes that the first frame[s] contains all the information for the
-    initialization of the environment. Example - snake, pong, breakout
-    """
     def __init__(
         self,
         num_precondition_frames,
@@ -57,7 +47,7 @@ class Model(tu.BaseModule):
         rnn_hidden_size,
     ):
         super().__init__()
-        self.name = 'RNN Frame Deconvolve'
+        self.name = 'RNN Dense'
 
         self.frame_size = frame_size
         self.precondition_channels = num_precondition_frames * 3
@@ -66,14 +56,10 @@ class Model(tu.BaseModule):
 
         self.compute_precondition = nn.Sequential(
             tu.cat_channels(),
-            tu.conv_to_flat(
-                input_size=frame_size,
-                channel_sizes=[self.precondition_channels, 64, 64],
-                ks=4,
-                s=2,
-                out_size=rnn_hidden_size * num_rnn_layers,
-            ),
-            nn.Tanh(),
+            tu.reshape(-1, self.precondition_channels * 32 * 32),
+            tu.dense(i=self.precondition_channels * 32 * 32, o=128),
+            nn.BatchNorm1d(128),
+            tu.dense(i=128, o=rnn_hidden_size * num_rnn_layers, a=nn.Tanh()),
         )
 
         self.rnn = RNNWrapper(
@@ -89,10 +75,10 @@ class Model(tu.BaseModule):
 
         self.deconvolve_to_frame = tu.time_distribute(
             nn.Sequential(
-                tu.dense(i=rnn_hidden_size, o=512),
-                tu.reshape(-1, 32, 4, 4),
-                tu.conv_decoder([32, 128, 64, 3], ks=4, s=2),
-                nn.Sigmoid(),
+                tu.dense(i=rnn_hidden_size, o=128),
+                nn.BatchNorm1d(128),
+                tu.dense(i=128, o=32 * 32 * 3, a=nn.Sigmoid()),
+                tu.reshape(-1, 3, 32, 32),
             ))
 
     def forward(self, x):
@@ -186,7 +172,7 @@ def make_model(precondition_size, frame_size, num_actions):
 
 
 def sanity_check():
-    num_precondition_frames = 4
+    num_precondition_frames = 2
     frame_size = (32, 32)
     num_actions = 3
     max_seq_len = 32
