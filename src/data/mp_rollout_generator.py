@@ -181,11 +181,11 @@ if __name__ == '__main__':
     generator = preprocessed_mp_generator(
         env_name='TwoPlayerPong-32-v0',
         bs=32,
-        min_seq_len=32,
-        max_seq_len=64,
+        min_seq_len=10,
+        max_seq_len=260,
         agent_ctor=agent_ctor,
         frame_size=(32, 32),
-        num_processes=4,
+        num_processes=8,
         buffer_size=1024,
         moving_window_slices=32,
     )

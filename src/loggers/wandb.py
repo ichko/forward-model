@@ -2,6 +2,8 @@ import os
 import wandb
 from src.utils import IS_DEBUG
 
+import numpy as np
+
 if IS_DEBUG:
     os.environ['WANDB_MODE'] = 'dryrun'
 
@@ -42,16 +44,22 @@ class WAndBLogger:
     def log(self, dict):
         wandb.log(dict)
 
+    def log_images(self, name, imgs):
+        wandb.log({name: [wandb.Image(i) for i in imgs]})
+
     def log_info(self, info, prefix='train'):
         if hasattr(self.model, 'scheduler'):
             wandb.log({'lr_scheduler': self.model.scheduler.get_lr()[0]})
 
-        num_log_images = 2
-        y = info['y'][:num_log_images].detach().cpu() * 255
-        y_pred = info['y_pred'][:num_log_images].detach().cpu() * 255
+        num_log_batches = 1
+        y = info['y'][:num_log_batches].detach().cpu().numpy() * 255
+        y_pred = info['y_pred'][:num_log_batches].detach().cpu().numpy() * 255
         diff = abs(y - y_pred)
+        y = y.astype(np.uint8)
+        y_pred = y_pred.astype(np.uint8)
+        diff = diff.astype(np.uint8)
 
-        wandb_vid_ctor = lambda x: wandb.Video(x, fps=20)
+        wandb_vid_ctor = lambda x: wandb.Video(x, fps=20, format='webm')
         wrapper_cls = wandb_vid_ctor if self.type == 'video' else wandb.Image
 
         wandb.log({
