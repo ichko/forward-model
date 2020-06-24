@@ -81,6 +81,14 @@ def persist(func, path, override=False):
     return result
 
 
+def cartesian(*lists):
+    result = [[]]
+    for l in lists:
+        result = [r + [el] for r in result for el in l]
+
+    return result
+
+
 # This is necessary for some openai gym environments rendering
 def add_virtual_display_if_non_present():
     if 'DISPLAY' not in os.environ:
