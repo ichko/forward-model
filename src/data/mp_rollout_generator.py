@@ -28,8 +28,23 @@ def get_episode(env, agent, min_seq_len, max_seq_len):
             alive = env.alive if hasattr(env, 'alive') else True
             if done or not alive: break
 
+        episode_len = i + 1
         if i >= min_seq_len - 1:
-            return actions, observations, rewards, terminals
+            return episode_len, actions, observations, rewards, terminals
+
+
+def slice_episode(episode, moving_window_slices):
+    episode_len, actions, observations, rewards, terminals = episode
+    result = []
+    for i in range(episode_len - moving_window_slices):
+        episode_slice = moving_window_slices, \
+                        actions[i:i + moving_window_slices], \
+                        observations[i:i + moving_window_slices], \
+                        rewards[i:i + moving_window_slices], \
+                        terminals[i:i + moving_window_slices]
+        result.append(episode_slice)
+
+    return result
 
 
 def mp_generator(
@@ -38,6 +53,7 @@ def mp_generator(
     agent_ctor,
     min_seq_len,
     max_seq_len,
+    moving_window_slices,
     buffer_size=1000,
     num_processes=8,
 ):
@@ -46,12 +62,21 @@ def mp_generator(
             env = env_ctor()
             agent = agent_ctor(env)
 
-            yield get_episode(
+            episode = get_episode(
                 env=env,
                 agent=agent,
                 min_seq_len=min_seq_len,
                 max_seq_len=max_seq_len,
             )
+
+            if moving_window_slices is not None:
+                episode_slices = slice_episode(
+                    episode,
+                    moving_window_slices,
+                )
+                yield episode_slices
+            else:
+                yield [episode]
 
     mpb = MiltiprocessBuffer(
         buffer_size=buffer_size,
@@ -64,11 +89,13 @@ def mp_generator(
 
     def get_batch():
         batch = random.sample(local_process_buffer, bs)
-        actions, observations, rewards, terminals = [
+        episode_len, actions, observations, rewards, terminals = [
             np.array(t) for t in zip(*batch)
         ]
 
         return {
+            'episode_len': episode_len,
+            'actions': actions,
             'actions': actions,
             'observations': observations,
             'rewards': rewards,
@@ -77,9 +104,13 @@ def mp_generator(
 
     def local_process_generator():
         while True:
-            episode = mpb.try_pop()
-            if episode is not None:
-                local_process_buffer.append(episode)
+            episode_slices = mpb.try_pop()
+            if episode_slices is not None:
+                for s in episode_slices:
+                    if len(local_process_buffer) >= bs:
+                        yield get_batch()
+
+                    local_process_buffer.append(s)
 
             if len(local_process_buffer) >= bs:
                 yield get_batch()
@@ -99,6 +130,9 @@ def mp_generator(
         def __next__(self):
             return next(generator_instance)
 
+        def __del__(self):
+            return mpb.terminate()
+
     return StatefulGenerator()
 
 
@@ -110,6 +144,8 @@ def preprocessed_mp_generator(
     agent_ctor=None,
     frame_size=None,
     num_processes=16,
+    buffer_size=256,
+    moving_window_slices: int = None,
 ):
     from src.utils import make_preprocessed_env
 
@@ -129,8 +165,9 @@ def preprocessed_mp_generator(
         agent_ctor=agent_ctor,
         min_seq_len=min_seq_len,
         max_seq_len=max_seq_len,
-        buffer_size=256,
+        buffer_size=buffer_size,
         num_processes=num_processes,
+        moving_window_slices=moving_window_slices,
     )
 
 
@@ -139,16 +176,18 @@ if __name__ == '__main__':
     import random
 
     def agent_ctor(env):
-        return pong.PONGAgent(env, stochasticity=random.random())
+        return pong.PONGAgent(env, stochasticity=random.uniform(0.8, 1))
 
     generator = preprocessed_mp_generator(
-        env_name='DeterministicTwoPlayerPong-50-v0',
+        env_name='TwoPlayerPong-32-v0',
         bs=32,
-        min_seq_len=64,
-        max_seq_len=128,
+        min_seq_len=32,
+        max_seq_len=64,
         agent_ctor=agent_ctor,
         frame_size=(32, 32),
-        num_processes=15,
+        num_processes=4,
+        buffer_size=1024,
+        moving_window_slices=32,
     )
 
     for i in range(100000):
