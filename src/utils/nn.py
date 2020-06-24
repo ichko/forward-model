@@ -236,6 +236,39 @@ def extract_tensors(vec, tensor_shapes):
     return tensors
 
 
+def spatial_transformer():
+    class SpatialTransformer(nn.Module):
+        def __init__(self):
+            super().__init__()
+
+            self.net = nn.Sequential(
+                nn.Linear(64, 2 * 3),
+                reshape(-1, 8, 2, 3),
+                reshape(-1, 8, 2, 3),
+            )
+
+            # Taken from the pytorch spatial transformer tutorial.
+            device = self.net[-3].bias.device
+            self.net[-3].weight.data.zero_()
+            self.net[-3].bias.data.copy_(
+                T.tensor([1, 0, 0, 0, 1, 0], dtype=T.float).to(device))
+
+        def get_action_grid(self, t_present, t_future):
+            theta = self.mo_e(t_present, t_future)
+            theta = theta.reshape(-1, 2, 3)
+            grid = F.affine_grid(
+                theta,
+                (theta.size(dim=0), 1, 64, 64),
+                align_corners=True,
+            )
+            return grid
+
+        def forward(self, x):
+            pass
+
+    return SpatialTransformer()
+
+
 @T.jit.script
 def mask_sequence(tensor, mask):
     initial_shape = tensor.shape

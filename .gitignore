@@ -4,3 +4,4 @@ wandb
 .reports
 .models
 .data
+.ipynb_checkpoints
