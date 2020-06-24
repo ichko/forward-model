@@ -155,3 +155,50 @@ def keyboard():
             self.listener.__exit__(exc_type, exc_val, exc_tb)
 
     return Keyboard()
+
+
+def numpy_img_dims(imgs):
+    return np.transpose(imgs, (0, 2, 3, 1))
+
+
+def get_example_rollout(info, id=0):
+    import matplotlib.pyplot as plt
+    from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+
+    num_imgs = 12
+
+    y = info['y'][id].detach().cpu().numpy()
+    y_pred = info['y_pred'][id].detach().cpu().numpy()
+    y = numpy_img_dims(y)
+    y_pred = numpy_img_dims(y_pred)
+    diff = abs(y - y_pred)
+
+    plot_size = 2
+    fig, axs = plt.subplots(3,
+                            num_imgs,
+                            figsize=(plot_size * num_imgs, plot_size * 3))
+    canvas = FigureCanvas(fig)
+
+    for i, f in enumerate(range(0, len(y), len(y) // (num_imgs - 1))):
+        l, r, m = (axs[0, i], axs[1, i], axs[2, i])
+
+        l.imshow(y[f])
+        r.imshow(y_pred[f])
+        m.imshow(diff[f])
+
+        l.set_xticklabels([])
+        r.set_xticklabels([])
+        m.set_xticklabels([])
+        l.set_yticklabels([])
+        r.set_yticklabels([])
+        m.set_yticklabels([])
+
+    fig.tight_layout(pad=0.4, w_pad=0.5, h_pad=1.0)
+    canvas.draw()  # https://stackoverflow.com/a/35362787
+
+    buf = canvas.buffer_rgba()
+    # convert to a NumPy array
+    image = np.asarray(buf)
+    plt.close()
+
+    return image
