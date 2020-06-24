@@ -19,36 +19,27 @@ def get_model(hparams):
 
 
 def get_data_generator(hparams, num_processes=8):
+    import random
     from src.data.mp_rollout_generator import preprocessed_mp_generator
+    from src.data.pong import PONGAgent
 
-    def pong_generator():
-        import random
-        from src.data.pong import PONGAgent
+    def pong_agent_ctor(env):
+        return PONGAgent(env, stochasticity=random.uniform(0.8, 1))
 
-        def agent_ctor(env):
-            return PONGAgent(env, stochasticity=random.uniform(0.8, 1))
-
-        return preprocessed_mp_generator(
-            env_name=hparams.env_name,
-            bs=hparams.bs,
-            min_seq_len=hparams.min_seq_len,
-            max_seq_len=hparams.max_seq_len,
-            agent_ctor=agent_ctor,
-            frame_size=hparams.frame_size,
-            num_processes=num_processes,
-        )
-
+    agent_ctor = None  # random agenet
     if 'TwoPlayerPong' in hparams.env_name:
-        return pong_generator()
+        agent_ctor = pong_agent_ctor
 
     return preprocessed_mp_generator(
         env_name=hparams.env_name,
         bs=hparams.bs,
-        min_seq_len=hparams.max_seq_len,
-        max_seq_len=hparams.min_seq_len,
-        agent_ctor=None,  # random agent
-        frame_size=hparams.env_name,
+        min_seq_len=hparams.min_seq_len,
+        max_seq_len=hparams.max_seq_len,
+        agent_ctor=agent_ctor,
+        frame_size=hparams.frame_size,
         num_processes=num_processes,
+        buffer_size=512,
+        moving_window_slices=hparams.moving_window_slices,
     )
 
 
@@ -61,8 +52,8 @@ def main(hparams):
 
     from src.utils import get_example_rollout
 
-    train_data_generator = get_data_generator(hparams)
-    val_data_generator = get_data_generator(hparams)
+    train_data_generator = get_data_generator(hparams, num_processes=10)
+    val_data_generator = get_data_generator(hparams, num_processes=4)
 
     model = get_model(hparams)
 
@@ -117,25 +108,28 @@ def main(hparams):
                 model.persist()
 
 
+import argparse
+
+defaults = dict(
+    log_interval=500,
+    frame_size=(32, 32),
+    its=50_000,
+    bs=32,
+    lr=0.0002,
+    device='cuda',
+    model='rnn_deconvolve',
+    env_name='TwoPlayerPong-32-v0',
+    # env_name='CubeCrash-v0',
+    # env_name='snek-rgb-16-v1',
+    # env_name='CartPole-v1',
+    # env_name='LunarLander-v2',
+    precondition_size=3,
+    max_seq_len=128,
+    min_seq_len=35,
+    moving_window_slices=None,
+)
+
+hparams = argparse.Namespace(**defaults)
+
 if __name__ == '__main__':
-    import argparse
-
-    hparams = argparse.Namespace(
-        model='rnn_deconvolve',
-        env_name='TwoPlayerPong-32-v0',
-        # env_name='CubeCrash-v0',
-        # env_name='snek-rgb-16-v1',
-        # env_name='CartPole-v1',
-        # env_name='LunarLander-v2',
-        precondition_size=4,
-        frame_size=(32, 32),
-        its=50_000,
-        bs=32,
-        log_interval=250,
-        lr=0.0001,
-        device='cuda',
-        max_seq_len=258,
-        min_seq_len=10,
-    )
-
     main(hparams)

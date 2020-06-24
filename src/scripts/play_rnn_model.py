@@ -1,5 +1,4 @@
-
-from src.pipelines.mp import get_model,hparams
+from src.pipelines.main import get_model, hparams
 from src.data.pong import PONGAgent
 
 import src.utils.nn as unn
@@ -16,9 +15,11 @@ from matplotlib import cm
 win_name = 'window'
 
 
-
 def main():
-    env = make_preprocessed_env(hparams.env_name, frame_size=hparams.frame_size)
+    env = make_preprocessed_env(
+        hparams.env_name,
+        frame_size=hparams.frame_size,
+    )
     model = get_model(hparams)
     model.eval()
     model.preload_weights()
@@ -37,23 +38,22 @@ def main():
         if done:
             raise Exception('env done too early')
 
-
     pred_obs = model.reset(precondition, precondition_actions)
 
     Renderer.init_window(900, 300)
 
-    agent = PONGAgent(env, stochasticity=0.2)
+    agent = PONGAgent(env, stochasticity=0.9)
 
     # print(env.action_space)
 
     while not done:
         # time.sleep(1 / 5)
-    
+
         frame = np.concatenate([obs, pred_obs, abs(obs - pred_obs)], axis=2)
         # frame = (frame * 255).astype(np.uint8)
         frame = frame.transpose(1, 2, 0)
 
-        frame = cm.bwr(1 - np.mean(frame, axis=2))[:,:,:3]
+        frame = cm.bwr(np.mean(frame, axis=2))[:, :, :3]
         Renderer.show_frame(frame)
 
         # action = -1

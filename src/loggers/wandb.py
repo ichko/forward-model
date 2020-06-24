@@ -59,7 +59,7 @@ class WAndBLogger:
         y_pred = y_pred.astype(np.uint8)
         diff = diff.astype(np.uint8)
 
-        wandb_vid_ctor = lambda x: wandb.Video(x, fps=20, format='webm')
+        wandb_vid_ctor = lambda x: wandb.Video(x, fps=20, format='gif')
         wrapper_cls = wandb_vid_ctor if self.type == 'video' else wandb.Image
 
         wandb.log({

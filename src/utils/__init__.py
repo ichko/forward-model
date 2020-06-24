@@ -165,21 +165,25 @@ def get_example_rollout(info, id=0):
     import matplotlib.pyplot as plt
     from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
-    num_imgs = 12
-
     y = info['y'][id].detach().cpu().numpy()
     y_pred = info['y_pred'][id].detach().cpu().numpy()
     y = numpy_img_dims(y)
     y_pred = numpy_img_dims(y_pred)
     diff = abs(y - y_pred)
 
+    num_imgs = 12
+    img_range = list(enumerate(range(0, len(y), len(y) // num_imgs + 1)))
+    num_imgs = len(img_range)
+
     plot_size = 2
-    fig, axs = plt.subplots(3,
-                            num_imgs,
-                            figsize=(plot_size * num_imgs, plot_size * 3))
+    fig, axs = plt.subplots(
+        3,
+        num_imgs,
+        figsize=(plot_size * num_imgs, plot_size * 3),
+    )
     canvas = FigureCanvas(fig)
 
-    for i, f in enumerate(range(0, len(y), len(y) // (num_imgs - 1))):
+    for i, f in img_range:
         l, r, m = (axs[0, i], axs[1, i], axs[2, i])
 
         l.imshow(y[f])
