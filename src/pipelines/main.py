@@ -18,28 +18,41 @@ def get_model(hparams):
     return model
 
 
-def get_data_generator(hparams, num_processes=8):
+def get_data_generator(
+    env_name,
+    bs,
+    min_seq_len,
+    max_seq_len,
+    frame_size,
+    moving_window_slices,
+    num_processes,
+    stochasticity=None,
+):
     import random
     from src.data.mp_rollout_generator import preprocessed_mp_generator
     from src.data.pong import PONGAgent
 
     def pong_agent_ctor(env):
-        return PONGAgent(env, stochasticity=random.uniform(0.8, 1))
+        nonlocal stochasticity
+        if stochasticity is None:
+            stochasticity = random.uniform(0.8, 1)
+
+        return PONGAgent(env, stochasticity)
 
     agent_ctor = None  # random agenet
-    if 'TwoPlayerPong' in hparams.env_name:
+    if 'TwoPlayerPong' in env_name:
         agent_ctor = pong_agent_ctor
 
     return preprocessed_mp_generator(
-        env_name=hparams.env_name,
-        bs=hparams.bs,
-        min_seq_len=hparams.min_seq_len,
-        max_seq_len=hparams.max_seq_len,
+        env_name=env_name,
+        bs=bs,
+        min_seq_len=min_seq_len,
+        max_seq_len=max_seq_len,
         agent_ctor=agent_ctor,
-        frame_size=hparams.frame_size,
+        frame_size=frame_size,
         num_processes=num_processes,
         buffer_size=512,
-        moving_window_slices=hparams.moving_window_slices,
+        moving_window_slices=moving_window_slices,
     )
 
 
@@ -52,8 +65,25 @@ def main(hparams):
 
     from src.utils import get_example_rollout
 
-    train_data_generator = get_data_generator(hparams, num_processes=10)
-    val_data_generator = get_data_generator(hparams, num_processes=4)
+    train_data_generator = get_data_generator(
+        env_name=hparams.env_name,
+        bs=hparams.bs,
+        min_seq_len=hparams.min_seq_len,
+        max_seq_len=hparams.max_seq_len,
+        frame_size=hparams.frame_size,
+        moving_window_slices=hparams.moving_window_slices,
+        num_processes=10,
+    )
+    val_data_generator = get_data_generator(
+        env_name=hparams.env_name,
+        bs=8,
+        min_seq_len=32,
+        max_seq_len=32,
+        frame_size=hparams.frame_size,
+        moving_window_slices=None,
+        num_processes=4,
+        stochasticity=0.2,
+    )
 
     model = get_model(hparams)
 
@@ -89,17 +119,18 @@ def main(hparams):
 
         logger.log({'train_loss': train_loss})
 
+        val_batch = next(val_data_generator)
+
         if it % hparams.log_interval == 0:
             logger.log_info(train_info, prefix='train')
 
             with torch.no_grad():
-                val_batch = next(val_data_generator)
                 val_loss, val_info = model.optim_step(val_batch)
 
                 logger.log({'val_loss': val_loss})
                 logger.log_info(val_info, prefix='val')
 
-                num_example_rollouts = 5
+                num_example_rollouts = 3
                 logger.log_images('example_val_rollout', [
                     get_example_rollout(val_info, i)
                     for i in range(num_example_rollouts)
@@ -129,7 +160,50 @@ defaults = dict(
     moving_window_slices=None,
 )
 
-hparams = argparse.Namespace(**defaults)
+configs = dict(
+    rnn_deconvolve=dict(
+        model='rnn_deconvolve',
+        bs=32,
+        precondition_size=3,
+        max_seq_len=128,
+        min_seq_len=35,
+        moving_window_slices=None,
+    ),
+    rnn_dense=dict(
+        model='rnn_dense',
+        bs=64,
+        precondition_size=3,
+        max_seq_len=128,
+        min_seq_len=35,
+        moving_window_slices=None,
+    ),
+    frame_transformer_dense=dict(
+        model='frame_transformer_dense',
+        bs=128,
+        precondition_size=2,
+        max_seq_len=64,
+        min_seq_len=32,
+        moving_window_slices=6,
+    ),
+)
+
+# config = configs['rnn_deconvolve']
+config = configs['rnn_dense']
+# config = configs['frame_transformer_dense']
+
+config_dict = {**defaults, **config}
+hparams = argparse.Namespace(**config_dict)
 
 if __name__ == '__main__':
+    import pprint
+    from src.utils import IS_DEBUG
+
+    pp = pprint.PrettyPrinter(4)
+    print(f'## Start training with configuration "{hparams.model.upper()}"')
+    pp.pprint(config_dict)
+
+    if not IS_DEBUG:
+        print('\n\nPress ENTER to continue')
+        _ = input()
+
     main(hparams)
