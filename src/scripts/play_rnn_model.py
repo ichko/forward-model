@@ -38,22 +38,22 @@ def main():
         if done:
             raise Exception('env done too early')
 
+    if hasattr(env, 'meta') and 'direction' in env.meta:
+        precondition = env.meta['direction']
+
     pred_obs = model.reset(precondition, precondition_actions)
 
     Renderer.init_window(900, 300)
 
     agent = PONGAgent(env, stochasticity=0.9)
 
-    # print(env.action_space)
-
     while not done:
         # time.sleep(1 / 5)
 
         frame = np.concatenate([obs, pred_obs, abs(obs - pred_obs)], axis=2)
-        # frame = (frame * 255).astype(np.uint8)
         frame = frame.transpose(1, 2, 0)
 
-        frame = cm.bwr(np.mean(frame, axis=2))[:, :, :3]
+        frame = cm.viridis(np.mean(frame, axis=2))[:, :, :3]
         Renderer.show_frame(frame)
 
         # action = -1

@@ -8,7 +8,7 @@ import torch.nn.functional as F
 
 
 def get_activation():
-    LEAKY_SLOPE = 0.2
+    LEAKY_SLOPE = 0.1
     return nn.LeakyReLU(LEAKY_SLOPE, inplace=True)
 
 
