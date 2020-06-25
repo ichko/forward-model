@@ -1,5 +1,5 @@
 import random
-from collections import deque
+from collections import deque, defaultdict
 
 import numpy as np
 
@@ -30,18 +30,28 @@ def get_episode(env, agent, min_seq_len, max_seq_len):
 
         episode_len = i + 1
         if i >= min_seq_len - 1:
-            return episode_len, actions, observations, rewards, terminals
+            meta = env.meta if hasattr(env, 'meta') else dict()
+            return meta, (
+                episode_len,
+                actions,
+                observations,
+                rewards,
+                terminals,
+            )
 
 
 def slice_episode(episode, moving_window_slices):
-    episode_len, actions, observations, rewards, terminals = episode
+    meta, (episode_len, actions, observations, rewards, terminals) = episode
     result = []
     for i in range(episode_len - moving_window_slices):
-        episode_slice = moving_window_slices, \
-                        actions[i:i + moving_window_slices], \
-                        observations[i:i + moving_window_slices], \
-                        rewards[i:i + moving_window_slices], \
-                        terminals[i:i + moving_window_slices]
+        episode_slice = meta, (
+            moving_window_slices,
+            actions[i:i + moving_window_slices],
+            observations[i:i + moving_window_slices],
+            rewards[i:i + moving_window_slices],
+            terminals[i:i + moving_window_slices],
+        )
+
         result.append(episode_slice)
 
     return result
@@ -89,13 +99,21 @@ def mp_generator(
 
     def get_batch():
         batch = random.sample(local_process_buffer, bs)
+        meta, tensors = zip(*batch)
         episode_len, actions, observations, rewards, terminals = [
-            np.array(t) for t in zip(*batch)
+            np.array(t) for t in zip(*tensors)
         ]
 
+        batched_meta = defaultdict(lambda: [])
+        for m in meta:
+            for k, v in m.items():
+                batched_meta[k].append(v)
+        for k, v in batched_meta.items():
+            batched_meta[k] = np.array(v)
+
         return {
+            'meta': batched_meta,
             'episode_len': episode_len,
-            'actions': actions,
             'actions': actions,
             'observations': observations,
             'rewards': rewards,

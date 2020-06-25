@@ -158,7 +158,10 @@ class PONGGym(gym.Env):
         super().__init__()
         self.W = W
         self.H = H
+
         self.direction = direction
+        self.meta = {'direction': direction}
+
         self.window_created = False
         self.reset()
 
@@ -171,7 +174,7 @@ class PONGGym(gym.Env):
         reward = not self.pong.game_over
         done = self.pong.game_over
 
-        return obs, reward, done, {}
+        return obs, reward, done, dict()
 
     def reset(self):
         # 9 actions, 3 for each player - [up, stay, down]
