@@ -32,7 +32,7 @@ class RNNWrapper(nn.Module):
     def forward(self, x, state):
         # This is done because the first dimension reflects the number of rnn layer
         state = state.unsqueeze(0)
-        x, _ = self.initial_rnn(x)
+        x, _ = self.initial_rnn(x, state)
         return self.dilated_rnn(x)
 
 
@@ -71,7 +71,7 @@ class Model(tu.BaseModule):
                 channel_sizes=[self.precondition_channels, 64, 64],
                 ks=4,
                 s=2,
-                out_size=rnn_hidden_size * num_rnn_layers,
+                out_size=rnn_hidden_size,
             ),
             nn.Tanh(),
         )
