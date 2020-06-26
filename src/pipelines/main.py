@@ -72,13 +72,13 @@ def main(hparams):
         max_seq_len=hparams.max_seq_len,
         frame_size=hparams.frame_size,
         moving_window_slices=hparams.moving_window_slices,
-        num_processes=10,
+        num_processes=12,
     )
     val_data_generator = get_data_generator(
         env_name=hparams.env_name,
         bs=8,
-        min_seq_len=32,
-        max_seq_len=32,
+        min_seq_len=64,
+        max_seq_len=64,
         frame_size=hparams.frame_size,
         moving_window_slices=None,
         num_processes=4,
@@ -161,22 +161,33 @@ defaults = dict(
 )
 
 configs = dict(
+    ## RNN Based
     rnn_deconvolve=dict(
         model='rnn_deconvolve',
         bs=32,
-        precondition_size=3,
-        max_seq_len=128,
-        min_seq_len=35,
+        precondition_size=2,
+        max_seq_len=256,
+        min_seq_len=64,
         moving_window_slices=None,
     ),
     rnn_dense=dict(
         model='rnn_dense',
         bs=64,
-        precondition_size=3,
+        precondition_size=2,
         max_seq_len=128,
-        min_seq_len=35,
+        min_seq_len=64,
         moving_window_slices=None,
     ),
+    rnn_spatial_transformer=dict(
+        model='rnn_spatial_transformer',
+        bs=64,
+        precondition_size=2,
+        max_seq_len=128,
+        min_seq_len=64,
+        moving_window_slices=None,
+    ),
+
+    ## Frame transformers
     frame_transformer_dense=dict(
         model='frame_transformer_dense',
         bs=128,
@@ -188,7 +199,9 @@ configs = dict(
 )
 
 # config = configs['rnn_deconvolve']
-config = configs['rnn_dense']
+# config = configs['rnn_dense']
+config = configs['rnn_spatial_transformer']
+
 # config = configs['frame_transformer_dense']
 
 config_dict = {**defaults, **config}
