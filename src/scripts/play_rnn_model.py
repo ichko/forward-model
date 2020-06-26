@@ -49,7 +49,7 @@ def main():
     agent = PONGAgent(env, stochasticity=0.9)
 
     while not done:
-        time.sleep(1 / 5)
+        # time.sleep(1 / 5)
 
         frame = np.concatenate([obs, pred_obs, abs(obs - pred_obs)], axis=2)
         frame = frame.transpose(1, 2, 0)

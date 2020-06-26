@@ -56,15 +56,17 @@ class Model(RNNBase):
 
         self.frame_feature_extract = tu.time_distribute(
             nn.Sequential(
-                tu.conv_block(i=3, o=8, ks=7, s=1, p=3),
+                nn.Dropout(0.5),
+                tu.conv_block(i=3, o=8, ks=7, s=2, p=3),
+                nn.Dropout(0.1),
                 tu.conv_block(i=8, o=8, ks=7, s=1, p=3),
             ))
 
         self.transform_frame = tu.time_distribute(
             nn.Sequential(
                 tu.spatial_transformer(i=rnn_hidden_size, num_channels=8),
-                tu.conv_block(i=8, o=8, ks=7, s=1, p=3),
-                tu.conv_block(i=8, o=3, ks=7, s=1, p=3, a=nn.Sigmoid()),
+                tu.deconv_block(i=8, o=8, ks=7, s=2, p=3),
+                tu.conv_block(i=8, o=3, ks=6, s=1, p=3, a=nn.Sigmoid()),
             ))
 
     def forward(self, x):

@@ -180,10 +180,11 @@ configs = dict(
     ),
     rnn_spatial_transformer=dict(
         model='rnn_spatial_transformer',
-        bs=64,
+        lr=0.0005,
+        bs=16,
         precondition_size=2,
-        max_seq_len=128,
-        min_seq_len=64,
+        max_seq_len=64,
+        min_seq_len=32,
         moving_window_slices=None,
     ),
 
