@@ -26,29 +26,30 @@ def main():
     model = model.to('cuda')
 
     obs = env.reset()
-    precondition = []
+    input_frames = []
     precondition_actions = []
     for i in range(hparams.precondition_size):
         action = env.action_space.sample()
 
-        precondition.append(obs)
+        input_frames.append(obs)
         precondition_actions.append(action)
 
         obs, reward, done, _info = env.step(action)
         if done:
             raise Exception('env done too early')
 
+    precondition = input_frames
     if hasattr(env, 'meta') and 'direction' in env.meta:
         precondition = env.meta['direction']
 
-    pred_obs = model.reset(precondition, precondition_actions)
+    pred_obs = model.reset(precondition, precondition_actions, input_frames)
 
     Renderer.init_window(900, 300)
 
     agent = PONGAgent(env, stochasticity=0.9)
 
     while not done:
-        # time.sleep(1 / 5)
+        time.sleep(1 / 5)
 
         frame = np.concatenate([obs, pred_obs, abs(obs - pred_obs)], axis=2)
         frame = frame.transpose(1, 2, 0)
