@@ -7,36 +7,10 @@ import torch as T
 import torch.nn as nn
 import torch.nn.functional as F
 
-
-class RNNWrapper(nn.Module):
-    def __init__(self, input_size, hidden_size, num_rnn_layers):
-        super().__init__()
-
-        self.initial_rnn = nn.GRU(
-            input_size,
-            hidden_size=hidden_size,
-            num_layers=1,
-            batch_first=True,
-        )
-
-        self.dilated_rnn = drnn.dilate_rnn(
-            cell=nn.GRU(
-                hidden_size,
-                hidden_size=hidden_size,
-                num_layers=num_rnn_layers,
-                batch_first=True,
-            ),
-            skip=8,
-        )
-
-    def forward(self, x, state):
-        # This is done because the first dimension reflects the number of rnn layer
-        state = state.unsqueeze(0)
-        x, _ = self.initial_rnn(x, state)
-        return self.dilated_rnn(x)
+from src.models.rnn_base import RNNBase, base_sanity_check
 
 
-class Model(tu.BaseModule):
+class Model(RNNBase):
     def __init__(
         self,
         num_precondition_frames,
@@ -45,8 +19,15 @@ class Model(tu.BaseModule):
         num_actions,
         action_embedding_size,
         rnn_hidden_size,
+        recurrent_skip,
     ):
-        super().__init__()
+        super().__init__(
+            action_embedding_size,
+            rnn_hidden_size,
+            num_rnn_layers,
+            recurrent_skip,
+        )
+
         self.name = 'RNN Dense'
 
         self.frame_size = frame_size
@@ -62,18 +43,11 @@ class Model(tu.BaseModule):
         )
 
         self.frame_precondition = nn.Sequential(
-            tu.cat_channels(),
             tu.reshape(-1, self.precondition_channels * 32 * 32),
             tu.dense(i=self.precondition_channels * 32 * 32, o=128),
             nn.BatchNorm1d(128),
             tu.dense(i=128, o=rnn_hidden_size),
             nn.BatchNorm1d(rnn_hidden_size),
-        )
-
-        self.rnn = RNNWrapper(
-            action_embedding_size,
-            rnn_hidden_size,
-            num_rnn_layers,
         )
 
         self.action_embedding = nn.Embedding(
@@ -116,24 +90,6 @@ class Model(tu.BaseModule):
 
         return frames
 
-    def render(self, _mode='rgb_array'):
-        pred_frame = self.forward([[self.actions], [self.precondition]])
-        pred_frame = pred_frame[0, -1]
-        pred_frame = pred_frame.detach().cpu().numpy()
-        return pred_frame
-
-    def reset(self, precondition, precondition_actions):
-        self.precondition = precondition
-        self.actions = precondition_actions
-
-        return self.render()
-
-    def step(self, action):
-        self.actions.append(action)
-        pred_frame = self.render()
-
-        return pred_frame
-
     def optim_step(self, batch):
         actions = batch['actions']
         observations = batch['observations']
@@ -165,18 +121,6 @@ class Model(tu.BaseModule):
 
         return loss, {'y': y_true, 'y_pred': y_pred}
 
-    def configure_optim(self, lr):
-        # LR should be 1. The actual LR comes from the scheduler.
-        self.optim = T.optim.Adam(self.parameters(), lr=1)
-
-        def lr_lambda(it):
-            return lr / (it // 20000 + 1)
-
-        self.scheduler = T.optim.lr_scheduler.LambdaLR(
-            self.optim,
-            lr_lambda=lr_lambda,
-        )
-
 
 def make_model(precondition_size, frame_size, num_actions):
     return Model(
@@ -186,43 +130,16 @@ def make_model(precondition_size, frame_size, num_actions):
         num_actions=num_actions,
         action_embedding_size=32,
         rnn_hidden_size=32,
+        recurrent_skip=8,
     )
 
 
 def sanity_check():
-    num_precondition_frames = 2
-    frame_size = (32, 32)
-    num_actions = 3
-    max_seq_len = 32
-    bs = 32
-
-    model = make_model(
-        num_precondition_frames,
-        frame_size,
-        num_actions,
-    ).to('cuda')
-
-    print(model.summary())
-
-    frames = T.randint(
-        0,
-        255,
-        size=(bs, max_seq_len, 3, *frame_size),
-    ) / 255.0
-    actions = T.randint(0, num_actions, size=(bs, max_seq_len))
-    terminals = T.rand(bs, max_seq_len) > 0.5
-
-    model.configure_optim(lr=0.0001)
-    batch = {
-        'meta': dict(),
-        'actions': actions,
-        'observations': frames,
-        'terminals': terminals,
-    }
-    loss, _info = model.optim_step(batch)
-    loss, _info = model.optim_step(batch)
-
-    print(f'OPTIM STEP LOSS {loss.item()}')
+    base_sanity_check(lambda: make_model(
+        precondition_size=2,
+        frame_size=(32, 32),
+        num_actions=3,
+    ))
 
 
 if __name__ == '__main__':
