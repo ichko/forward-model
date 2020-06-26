@@ -236,35 +236,45 @@ def extract_tensors(vec, tensor_shapes):
     return tensors
 
 
-def spatial_transformer():
+def spatial_transformer(i, num_channels):
     class SpatialTransformer(nn.Module):
         def __init__(self):
             super().__init__()
 
+            self.num_channels = num_channels
             self.net = nn.Sequential(
-                nn.Linear(64, 2 * 3),
-                reshape(-1, 8, 2, 3),
-                reshape(-1, 8, 2, 3),
+                nn.Linear(i, num_channels * 2 * 3),
+                reshape(-1, 2, 3),
             )
 
             # Taken from the pytorch spatial transformer tutorial.
-            device = self.net[-3].bias.device
-            self.net[-3].weight.data.zero_()
-            self.net[-3].bias.data.copy_(
-                T.tensor([1, 0, 0, 0, 1, 0], dtype=T.float).to(device))
-
-        def get_action_grid(self, t_present, t_future):
-            theta = self.mo_e(t_present, t_future)
-            theta = theta.reshape(-1, 2, 3)
-            grid = F.affine_grid(
-                theta,
-                (theta.size(dim=0), 1, 64, 64),
-                align_corners=True,
-            )
-            return grid
+            device = self.net[0].bias.device
+            self.net[0].weight.data.zero_()
+            self.net[0].bias.data.copy_(
+                T.tensor(
+                    [1, 0, 0, 0, 1, 0] * num_channels,
+                    dtype=T.float,
+                ).to(device))
 
         def forward(self, x):
-            pass
+            inp, tensor_3d = x
+
+            theta = self.net(inp)
+            _, C, H, W, = tensor_3d.shape
+
+            grid = F.affine_grid(
+                theta,
+                (theta.size(dim=0), 1, H, W),
+                align_corners=True,
+            )
+            tensor_3d = tensor_3d.reshape(-1, 1, H, W)
+            tensor_3d = F.grid_sample(
+                tensor_3d,
+                grid,
+                align_corners=True,
+            )
+
+            return tensor_3d.reshape(-1, C, H, W)
 
     return SpatialTransformer()
 
@@ -331,13 +341,17 @@ def time_distribute_decorator(module):
             super().__init__()
             self.module = module
 
-        def forward(self, *inputs):
-            inp = inputs[0]
-            bs = inp.size(0)
-            seq_len = inp.size(1)
-            inputs = [i.reshape(-1, *i.shape[2:]) for i in inputs]
+        def forward(self, input):
+            shape = input[0].size() if type(input) is list else input.size()
+            bs = shape[0]
+            seq_len = shape[1]
 
-            out = module(*inputs)
+            if type(input) is list:
+                input = [i.reshape(-1, *i.shape[2:]) for i in input]
+            else:
+                input = input.reshape(-1, *shape[2:])
+
+            out = module(input)
             out = out.view(bs, seq_len, *out.shape[1:])
 
             return out
