@@ -1,25 +1,23 @@
-from src.pipelines.main import get_model, hparams
-from src.data.pong import PONGAgent
+import time
+import numpy as np
+from matplotlib import cm
 
-import src.utils.nn as unn
+from src.pipelines.main import get_model
+from src.pipelines.config import get_hparams
+
+from src.data.pong import PONGAgent
 from src.utils import make_preprocessed_env
 from src.utils.renderer import Renderer
 
-import time
-
-import numpy as np
-import cv2
-
-from matplotlib import cm
-
-win_name = 'window'
-
 
 def main():
+    hparams, _ = get_hparams('rnn_spatial_transformer_pong')
+
     env = make_preprocessed_env(
         hparams.env_name,
         frame_size=hparams.frame_size,
     )
+
     model = get_model(hparams)
     model.eval()
     model.preload_weights()
@@ -38,15 +36,17 @@ def main():
         if done:
             raise Exception('env done too early')
 
-    precondition = input_frames
-    if hasattr(env, 'meta') and 'direction' in env.meta:
-        precondition = env.meta['direction']
+    precondition = input_frames[::]
+    # if hasattr(env, 'meta') and 'direction' in env.meta:
+    #     precondition = env.meta['direction']
 
     pred_obs = model.reset(precondition, precondition_actions, input_frames)
 
     Renderer.init_window(900, 300)
 
-    agent = PONGAgent(env, stochasticity=0.9)
+    random_agent = lambda _: env.action_space.sample()
+    pong_agent = PONGAgent(env, stochasticity=0.9)
+    agent = pong_agent if 'TwoPlayerPong' in hparams.env_name else random_agent
 
     while not done:
         # time.sleep(1 / 5)
@@ -54,7 +54,7 @@ def main():
         frame = np.concatenate([obs, pred_obs, abs(obs - pred_obs)], axis=2)
         frame = frame.transpose(1, 2, 0)
 
-        frame = cm.viridis(np.mean(frame, axis=2))[:, :, :3]
+        # frame = cm.viridis(np.mean(frame, axis=2))[:, :, :3]
         Renderer.show_frame(frame)
 
         # action = -1
