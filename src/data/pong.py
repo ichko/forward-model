@@ -160,7 +160,7 @@ class PONGGym(gym.Env):
         self.H = H
 
         self.direction = direction
-        self.meta = {'direction': direction}
+        # self.meta = {'direction': direction}
 
         self.window_created = False
         self.reset()

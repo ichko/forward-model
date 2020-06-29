@@ -35,12 +35,12 @@ class Model(RNNBase):
         self.num_precondition_frames = num_precondition_frames
         self.num_rnn_layers = num_rnn_layers
 
-        self.direction_precondition = nn.Sequential(
-            tu.dense(i=1, o=128),
-            nn.BatchNorm1d(128),
-            tu.dense(i=128, o=rnn_hidden_size),
-            nn.BatchNorm1d(rnn_hidden_size),
-        )
+        # self.direction_precondition = nn.Sequential(
+        #     tu.dense(i=1, o=128),
+        #     nn.BatchNorm1d(128),
+        #     tu.dense(i=128, o=rnn_hidden_size),
+        #     nn.BatchNorm1d(rnn_hidden_size),
+        # )
 
         self.frame_precondition = nn.Sequential(
             tu.reshape(-1, self.precondition_channels * 32 * 32),
@@ -70,7 +70,7 @@ class Model(RNNBase):
             precondition  -> [bs, preconf_size, 3, H, W]
         return -> future frame
         """
-        actions, precondition = x
+        actions, precondition, _ = x
 
         precondition = T.FloatTensor(precondition).to(self.device)
         actions = T.LongTensor(actions).to(self.device)
@@ -108,7 +108,7 @@ class Model(RNNBase):
 
         y_true = observations[:, self.num_precondition_frames:]
 
-        y_pred = self([actions, precondition])
+        y_pred = self([actions, precondition, None])
         y_pred = tu.mask_sequence(y_pred, ~terminals)
 
         loss = F.binary_cross_entropy(y_pred, y_true)

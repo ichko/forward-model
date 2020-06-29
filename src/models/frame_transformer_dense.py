@@ -25,12 +25,14 @@ class Model(tu.BaseModule):
         self.num_precondition_frames = num_precondition_frames
 
         self.compute_precondition = nn.Sequential(
-            nn.Dropout(0.1),
+            nn.Dropout(0.65),
             tu.cat_channels(),
             tu.reshape(-1, self.precondition_channels * 32 * 32),
-            tu.dense(i=self.precondition_channels * 32 * 32, o=128),
-            nn.BatchNorm1d(128),
-            tu.dense(i=128, o=hidden_size),
+            tu.dense(i=self.precondition_channels * 32 * 32, o=64),
+            nn.BatchNorm1d(64),
+            tu.dense(i=64, o=64),
+            nn.BatchNorm1d(64),
+            tu.dense(i=64, o=hidden_size),
             nn.BatchNorm1d(hidden_size),
         )
 
@@ -41,6 +43,8 @@ class Model(tu.BaseModule):
 
         self.to_frame = nn.Sequential(
             tu.dense(i=hidden_size + action_embedding_size, o=128),
+            nn.BatchNorm1d(128),
+            tu.dense(i=128, o=128),
             nn.BatchNorm1d(128),
             tu.dense(i=128, o=32 * 32 * 3, a=nn.Sigmoid()),
             tu.reshape(-1, 3, 32, 32),
@@ -79,7 +83,7 @@ class Model(tu.BaseModule):
         pred_frame = pred_frame.detach().cpu().numpy()
         return pred_frame
 
-    def reset(self, precondition, precondition_actions):
+    def reset(self, precondition, precondition_actions, _):
         self.precondition = precondition
         self.actions = precondition_actions
 
@@ -138,12 +142,12 @@ def make_model(precondition_size, frame_size, num_actions):
         frame_size=frame_size,
         num_actions=num_actions,
         action_embedding_size=32,
-        hidden_size=32,
+        hidden_size=64,
     )
 
 
 def sanity_check():
-    num_precondition_frames = 2
+    num_precondition_frames = 1
     frame_size = (32, 32)
     num_actions = 3
     max_seq_len = 32

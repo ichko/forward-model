@@ -115,7 +115,7 @@ def base_sanity_check(make_model):
     model.configure_optim(lr=0.0001)
     batch = {
         'meta': {
-            'direction': direction
+            # 'direction': direction
         },
         'actions': actions,
         'observations': frames,

@@ -69,11 +69,10 @@ class Model(tu.BaseModule):
             tu.conv_to_flat(
                 input_size=frame_size,
                 channel_sizes=[self.precondition_channels, 64, 64],
-                ks=4,
+                ks=5,
                 s=2,
                 out_size=rnn_hidden_size,
             ),
-            nn.Tanh(),
         )
 
         self.rnn = RNNWrapper(
@@ -90,8 +89,8 @@ class Model(tu.BaseModule):
         self.deconvolve_to_frame = tu.time_distribute(
             nn.Sequential(
                 tu.dense(i=rnn_hidden_size, o=512),
-                tu.reshape(-1, 32, 4, 4),
-                tu.conv_decoder([32, 128, 64, 3], ks=4, s=2),
+                tu.reshape(-1, 128, 2, 2),
+                tu.conv_decoder([128, 128, 64, 32, 3], ks=4, s=2),
                 nn.Sigmoid(),
             ))
 
@@ -102,7 +101,7 @@ class Model(tu.BaseModule):
             precondition  -> [bs, preconf_size, 3, H, W]
         return -> future frame
         """
-        actions, precondition = x
+        actions, precondition, _ = x
 
         precondition = T.FloatTensor(precondition).to(self.device)
         actions = T.LongTensor(actions).to(self.device)
@@ -116,12 +115,12 @@ class Model(tu.BaseModule):
         return frames
 
     def render(self, _mode='rgb_array'):
-        pred_frame = self.forward([[self.actions], [self.precondition]])
+        pred_frame = self.forward([[self.actions], [self.precondition], None])
         pred_frame = pred_frame[0, -1]
         pred_frame = pred_frame.detach().cpu().numpy()
         return pred_frame
 
-    def reset(self, precondition, precondition_actions):
+    def reset(self, precondition, precondition_actions, _):
         self.precondition = precondition
         self.actions = precondition_actions
 
@@ -148,7 +147,7 @@ class Model(tu.BaseModule):
 
         y_true = observations[:, self.num_precondition_frames:]
 
-        y_pred = self([actions, precondition])
+        y_pred = self([actions, precondition, None])
         y_pred = tu.mask_sequence(y_pred, ~terminals)
 
         loss = F.binary_cross_entropy(y_pred, y_true)
@@ -186,7 +185,7 @@ def make_model(precondition_size, frame_size, num_actions):
 
 
 def sanity_check():
-    num_precondition_frames = 4
+    num_precondition_frames = 3
     frame_size = (32, 32)
     num_actions = 3
     max_seq_len = 32
