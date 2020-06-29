@@ -1,3 +1,10 @@
+import argparse
+import pprint
+from src.utils import IS_DEBUG
+
+from src.pipelines.config import get_hparams
+
+
 def get_model(hparams):
     import importlib
     import gym
@@ -56,7 +63,7 @@ def get_data_generator(
     )
 
 
-def main(hparams):
+def main(hparams, args):
     import sys
     from src.loggers.wandb import WAndBLogger
 
@@ -77,8 +84,8 @@ def main(hparams):
     val_data_generator = get_data_generator(
         env_name=hparams.env_name,
         bs=8,
-        min_seq_len=64,
-        max_seq_len=64,
+        min_seq_len=min(64, hparams.min_seq_len),
+        max_seq_len=min(64, hparams.max_seq_len),
         frame_size=hparams.frame_size,
         moving_window_slices=None,
         num_processes=4,
@@ -87,12 +94,12 @@ def main(hparams):
 
     model = get_model(hparams)
 
-    if '--from-scratch' not in sys.argv:
-        try:
-            model.preload_weights()
-            print('>>> MODEL PRELOADED')
-        except Exception as _e:
-            print('>>> Could not preload! Starting from scratch.')
+    # if args.from_scratch:
+    #     try:
+    #         model.preload_weights()
+    #         print('>>> MODEL PRELOADED')
+    #     except Exception as _e:
+    #         print('>>> Could not preload! Starting from scratch.')
 
     model.configure_optim(lr=hparams.lr)
     model = model.to(hparams.device)
@@ -139,85 +146,28 @@ def main(hparams):
                 model.persist()
 
 
-import argparse
-
-defaults = dict(
-    log_interval=500,
-    frame_size=(32, 32),
-    its=50_000,
-    bs=32,
-    lr=0.0002,
-    device='cuda',
-    model='rnn_deconvolve',
-    env_name='TwoPlayerPong-32-v0',
-    # env_name='CubeCrash-v0',
-    # env_name='snek-rgb-16-v1',
-    # env_name='CartPole-v1',
-    # env_name='LunarLander-v2',
-    precondition_size=3,
-    max_seq_len=128,
-    min_seq_len=35,
-    moving_window_slices=None,
-)
-
-configs = dict(
-    ## RNN Based
-    rnn_deconvolve=dict(
-        model='rnn_deconvolve',
-        bs=32,
-        precondition_size=2,
-        max_seq_len=256,
-        min_seq_len=64,
-        moving_window_slices=None,
-    ),
-    rnn_dense=dict(
-        model='rnn_dense',
-        bs=64,
-        precondition_size=2,
-        max_seq_len=128,
-        min_seq_len=64,
-        moving_window_slices=None,
-    ),
-    rnn_spatial_transformer=dict(
-        model='rnn_spatial_transformer',
-        lr=0.0005,
-        bs=16,
-        precondition_size=2,
-        max_seq_len=64,
-        min_seq_len=32,
-        moving_window_slices=None,
-    ),
-
-    ## Frame transformers
-    frame_transformer_dense=dict(
-        model='frame_transformer_dense',
-        bs=128,
-        precondition_size=2,
-        max_seq_len=64,
-        min_seq_len=32,
-        moving_window_slices=6,
-    ),
-)
-
-# config = configs['rnn_deconvolve']
-# config = configs['rnn_dense']
-config = configs['rnn_spatial_transformer']
-
-# config = configs['frame_transformer_dense']
-
-config_dict = {**defaults, **config}
-hparams = argparse.Namespace(**config_dict)
-
 if __name__ == '__main__':
-    import pprint
-    from src.utils import IS_DEBUG
-
     pp = pprint.PrettyPrinter(4)
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        '--config',
+        default='frame_transformer_dense_cube',
+        help='id of configuration',
+    )
+    parser.add_argument('--from-scratch', action='store_false')
+    parser.add_argument('--debug', action='store_true')
+
+    args = parser.parse_args()
+
+    hparams, config_dict = get_hparams(args.config)
+
     print(f'## Start training with configuration "{hparams.model.upper()}"')
     pp.pprint(config_dict)
 
     if not IS_DEBUG:
         print('\n\nPress ENTER to continue')
         _ = input()
+        print('...')
 
-    main(hparams)
+    main(hparams, args)
