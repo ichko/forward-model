@@ -34,39 +34,46 @@ class Model(RNNBase):
         self.num_precondition_frames = num_precondition_frames
         self.num_rnn_layers = num_rnn_layers
 
-        # self.direction_precondition = nn.Sequential(
-        #     tu.dense(i=1, o=128),
-        #     nn.BatchNorm1d(128),
-        #     tu.dense(i=128, o=rnn_hidden_size),
-        #     nn.BatchNorm1d(rnn_hidden_size),
-        # )
-
-        self.frame_precondition = nn.Sequential(
-            nn.Dropout(0.2),
-            tu.reshape(-1, self.precondition_channels * 32 * 32),
-            tu.dense(i=self.precondition_channels * 32 * 32, o=64),
+        self.direction_precondition = nn.Sequential(
+            tu.dense(i=2, o=64),
             nn.BatchNorm1d(64),
             tu.dense(i=64, o=rnn_hidden_size),
             nn.BatchNorm1d(rnn_hidden_size),
         )
+
+        # self.frame_precondition = nn.Sequential(
+        #     tu.reshape(-1, self.precondition_channels * 32 * 32),
+        #     tu.dense(i=self.precondition_channels * 32 * 32, o=64),
+        #     nn.BatchNorm1d(64),
+        #     tu.dense(i=64, o=rnn_hidden_size),
+        #     nn.BatchNorm1d(rnn_hidden_size),
+        # )
 
         self.action_embedding = nn.Embedding(
             num_embeddings=num_actions,
             embedding_dim=action_embedding_size,
         )
 
+        num_affine_channels = 3
         self.frame_feature_extract = tu.time_distribute(
             nn.Sequential(
-                nn.Dropout(0.3),
-                tu.conv_block(i=3, o=32, ks=7, s=2, p=3),
-                tu.conv_block(i=32, o=3, ks=7, s=1, p=3),
+                nn.Dropout(0.6),
+                tu.conv_block(i=3, o=32, ks=3, s=1, p=0),
+                tu.conv_block(i=32, o=32, ks=5, s=1, p=0),
+                tu.conv_block(i=32, o=32, ks=5, s=1, p=0),
+                tu.conv_block(i=32, o=num_affine_channels, ks=7, s=1, p=0),
             ))
 
         self.transform_frame = tu.time_distribute(
             nn.Sequential(
-                tu.spatial_transformer(i=rnn_hidden_size, num_channels=3),
-                tu.deconv_block(i=3, o=16, ks=7, s=2, p=3),
-                tu.conv_block(i=16, o=3, ks=6, s=1, p=3, a=nn.Sigmoid()),
+                tu.spatial_transformer(
+                    i=rnn_hidden_size,
+                    num_channels=num_affine_channels,
+                ),
+                tu.deconv_block(i=num_affine_channels, o=16, ks=7, s=1, p=0),
+                tu.deconv_block(i=16, o=16, ks=5, s=1, p=0),
+                tu.deconv_block(i=16, o=16, ks=5, s=1, p=0),
+                tu.deconv_block(i=16, o=3, ks=3, s=1, p=0, a=nn.Sigmoid()),
             ))
 
     def forward(self, x):
@@ -81,7 +88,6 @@ class Model(RNNBase):
             precondition_map = self.frame_precondition(precondition)
         # else preconditioned with direction (from PONG)
         else:
-            precondition.unsqueeze_(1)
             precondition_map = self.direction_precondition(precondition)
 
         action_vectors = self.action_embedding(actions)
@@ -131,7 +137,7 @@ def make_model(precondition_size, frame_size, num_actions):
         frame_size=frame_size,
         num_rnn_layers=2,
         num_actions=num_actions,
-        action_embedding_size=32,
+        action_embedding_size=16,
         rnn_hidden_size=32,
         recurrent_skip=4,
     )

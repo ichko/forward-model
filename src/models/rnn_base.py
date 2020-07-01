@@ -110,12 +110,12 @@ def base_sanity_check(make_model):
     ) / 255.0
     actions = T.randint(0, num_actions, size=(bs, max_seq_len))
     terminals = T.rand(bs, max_seq_len) > 0.5
-    direction = T.rand(bs)
+    direction = T.rand(bs, 2)
 
     model.configure_optim(lr=0.0001)
     batch = {
         'meta': {
-            # 'direction': direction
+            'direction': direction
         },
         'actions': actions,
         'observations': frames,

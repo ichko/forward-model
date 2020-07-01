@@ -11,7 +11,7 @@ def get_model(hparams):
     import sneks
 
     model_module = importlib.import_module(f'src.models.{hparams.model}')
-    model_module.sanity_check()
+    # model_module.sanity_check()
 
     env = gym.make(hparams.env_name)
 
@@ -42,7 +42,7 @@ def get_data_generator(
     def pong_agent_ctor(env):
         nonlocal stochasticity
         if stochasticity is None:
-            stochasticity = random.uniform(0.8, 1)
+            stochasticity = random.uniform(0.5, 1)
 
         return PONGAgent(env, stochasticity)
 
@@ -79,7 +79,7 @@ def main(hparams, args):
         max_seq_len=hparams.max_seq_len,
         frame_size=hparams.frame_size,
         moving_window_slices=hparams.moving_window_slices,
-        num_processes=12,
+        num_processes=24,
     )
     val_data_generator = get_data_generator(
         env_name=hparams.env_name,
@@ -152,7 +152,7 @@ if __name__ == '__main__':
 
     parser.add_argument(
         '--config',
-        default='frame_transformer_dense_cube',
+        default='rnn_spatial_transformer_pong',
         help='id of configuration',
     )
     parser.add_argument('--from-scratch', action='store_false')
