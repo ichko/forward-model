@@ -20,7 +20,7 @@ from src.utils.renderer import Renderer
 
 
 def main():
-    hparams, _ = get_hparams('rnn_deconvolve_cube')
+    hparams, _ = get_hparams('rnn_spatial_transformer_pong')
 
     env = make_preprocessed_env(
         hparams.env_name,
@@ -61,8 +61,8 @@ def main():
                     raise Exception('env done too early')
 
             precondition = input_frames[::]
-            # if hasattr(env, 'meta') and 'direction' in env.meta:
-            #     precondition = env.meta['direction']
+            if hasattr(env, 'meta') and 'direction' in env.meta:
+                precondition = env.meta['direction']
 
             pred_obs = model.reset(
                 precondition,

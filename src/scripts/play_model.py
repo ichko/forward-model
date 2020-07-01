@@ -1,13 +1,25 @@
 import time
 import numpy as np
 from matplotlib import cm
+import random
+import torch as T
+import os
+
+np.random.seed(1)
+random.seed(1)
+T.manual_seed(1)
+T.backends.cudnn.deterministic = True
+T.backends.cudnn.benchmark = False
+os.environ['PYTHONHASHSEED'] = str(1)
 
 from src.pipelines.main import get_model
 from src.pipelines.config import get_hparams
 
 from src.data.pong import PONGAgent
-from src.utils import make_preprocessed_env
+from src.utils import make_preprocessed_env, get_example_rollout
 from src.utils.renderer import Renderer
+
+import matplotlib.pyplot as plt
 
 
 def main():
@@ -23,6 +35,16 @@ def main():
     model.preload_weights()
     model = model.to('cuda')
 
+    # assets = model.assets[0, 0].detach().cpu().numpy().transpose(1, 2, 0)
+    # img = np.concatenate(
+    #     [assets[:, :, i] for i in range(assets.shape[2])],
+    #     axis=1,
+    # )
+    # plt.imshow(img)
+    # plt.show()
+
+    # exit(0)
+
     obs = env.reset()
     input_frames = []
     precondition_actions = []
@@ -37,24 +59,29 @@ def main():
             raise Exception('env done too early')
 
     precondition = input_frames[::]
-    # if hasattr(env, 'meta') and 'direction' in env.meta:
-    #     precondition = env.meta['direction']
+    if hasattr(env, 'meta') and 'direction' in env.meta:
+        precondition = env.meta['direction']
 
     pred_obs = model.reset(precondition, precondition_actions, input_frames)
 
     Renderer.init_window(900, 300)
 
     random_agent = lambda _: env.action_space.sample()
-    pong_agent = PONGAgent(env, stochasticity=0.9)
+    pong_agent = PONGAgent(env, stochasticity=0.2)
     agent = pong_agent if 'TwoPlayerPong' in hparams.env_name else random_agent
+
+    y = []
+    y_pred = []
 
     while not done:
         # time.sleep(1 / 5)
+        y.append(obs)
+        y_pred.append(pred_obs)
 
         frame = np.concatenate([obs, pred_obs, abs(obs - pred_obs)], axis=2)
         frame = frame.transpose(1, 2, 0)
 
-        # frame = cm.viridis(np.mean(frame, axis=2))[:, :, :3]
+        # frame = cm.bwr(np.mean(frame, axis=2))[:, :, :3]
         Renderer.show_frame(frame)
 
         # action = -1
@@ -69,6 +96,11 @@ def main():
 
         obs, reward, done, _info = env.step(action)
         pred_obs = model.step(action)
+
+    get_example_rollout({
+        'y': [y],
+        'y_pred': [y_pred],
+    }, id=0, show=True)
 
 
 if __name__ == '__main__':
