@@ -3,7 +3,7 @@ import argparse
 
 def get_hparams(config_id):
     defaults = dict(
-        log_interval=500,
+        log_interval=2000,
         frame_size=(32, 32),
         its=50_000,
         bs=32,
@@ -66,7 +66,7 @@ def get_hparams(config_id):
         ## Spatial Transformer
         rnn_spatial_transformer_cube=dict(
             env_name='CubeCrash-v0',
-            lr=0.001,
+            lr=0.002,
             model='rnn_spatial_transformer',
             bs=16,
             precondition_size=1,
@@ -76,12 +76,22 @@ def get_hparams(config_id):
         ),
         rnn_spatial_transformer_pong=dict(
             env_name='TwoPlayerPong-32-v0',
-            lr=0.001,
+            lr=0.002,
             model='rnn_spatial_transformer',
             bs=16,
-            precondition_size=2,
-            max_seq_len=128,
-            min_seq_len=64,
+            precondition_size=1,
+            max_seq_len=64,
+            min_seq_len=16,
+            moving_window_slices=None,
+        ),
+        rnn_spatial_asset_transformer_pong=dict(
+            env_name='TwoPlayerPong-32-v0',
+            lr=0.001,
+            model='rnn_spatial_asset_transformer',
+            bs=32,
+            precondition_size=1,
+            max_seq_len=64,
+            min_seq_len=16,
             moving_window_slices=None,
         ),
 
