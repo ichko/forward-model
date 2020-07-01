@@ -242,15 +242,15 @@ def spatial_transformer(i, num_channels):
             super().__init__()
 
             self.num_channels = num_channels
-            self.net = nn.Sequential(
+            self.locator = nn.Sequential(
                 nn.Linear(i, num_channels * 2 * 3),
                 reshape(-1, 2, 3),
             )
 
             # Taken from the pytorch spatial transformer tutorial.
-            device = self.net[0].bias.device
-            self.net[0].weight.data.zero_()
-            self.net[0].bias.data.copy_(
+            device = self.locator[0].bias.device
+            self.locator[0].weight.data.zero_()
+            self.locator[0].bias.data.copy_(
                 T.tensor(
                     [1, 0, 0, 0, 1, 0] * num_channels,
                     dtype=T.float,
@@ -259,7 +259,7 @@ def spatial_transformer(i, num_channels):
         def forward(self, x):
             inp, tensor_3d = x
 
-            theta = self.net(inp)
+            theta = self.locator(inp)
             _, C, H, W, = tensor_3d.shape
 
             grid = F.affine_grid(
