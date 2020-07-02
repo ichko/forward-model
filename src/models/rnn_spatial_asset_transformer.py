@@ -34,29 +34,29 @@ class Model(RNNBase):
         self.num_precondition_frames = num_precondition_frames
         self.num_rnn_layers = num_rnn_layers
 
-        # self.direction_precondition = nn.Sequential(
-        #     tu.dense(i=2, o=64),
-        #     nn.BatchNorm1d(64),
-        #     tu.dense(i=64, o=rnn_hidden_size),
-        #     nn.BatchNorm1d(rnn_hidden_size),
-        # )
+        self.direction_precondition = nn.Sequential(
+            tu.dense(i=2, o=128),
+            nn.BatchNorm1d(128),
+            tu.dense(i=128, o=rnn_hidden_size),
+            nn.BatchNorm1d(rnn_hidden_size),
+        )
 
         self.num_assets = 3
         self.initialized = False
         self.assets = nn.Parameter(
-            T.randn(1, 1, self.num_assets, *self.frame_size[::-1]))
-        self.assets.requires_grad = True
+            T.zeros(1, 1, self.num_assets, *self.frame_size[::-1]))
+        self.assets.requires_grad = False
 
-        self.frame_precondition = nn.Sequential(
-            tu.cat_channels(),
-            tu.conv_to_flat(
-                input_size=frame_size,
-                channel_sizes=[self.precondition_channels, 64, 64],
-                ks=5,
-                s=2,
-                out_size=rnn_hidden_size,
-            ),
-        )
+        # self.frame_precondition = nn.Sequential(
+        #     tu.cat_channels(),
+        #     tu.conv_to_flat(
+        #         input_size=frame_size,
+        #         channel_sizes=[self.precondition_channels, 16, 32, 64, 8],
+        #         ks=4,
+        #         s=1,
+        #         out_size=rnn_hidden_size,
+        #     ),
+        # )
 
         self.action_embedding = nn.Embedding(
             num_embeddings=num_actions,
@@ -84,7 +84,12 @@ class Model(RNNBase):
 
         if not self.initialized:
             self.initialized = True
-            self.assets.data[0, 0, 0] = frames[0, 0, 0].clone()
+            f = frames[0, 0, 0].clone()
+            delim = 6
+            self.assets.data[0, 0, 0][:, :delim] = f[:, :delim]
+            self.assets.data[0, 0, 1][:, -delim:] = f[:, -delim:]
+            self.assets.data[0, 0, 2][:, delim:-delim] = f[:, delim:-delim]
+            self.assets.requires_grad = False
 
         # If precondition with frames
         if len(precondition.shape) == 5:  # (bs, num_frames, 3, H, W)
@@ -98,7 +103,7 @@ class Model(RNNBase):
 
         assets = self.assets.repeat(bs, seq_len, 1, 1, 1)
         pred_frames = self.transform_frame([rnn_out_vectors, assets])
-        pred_frames = pred_frames.sum(dim=2, keepdim=True)
+        pred_frames = pred_frames.mean(dim=2, keepdim=True)
         pred_frames = T.sigmoid(pred_frames)
         pred_frames = pred_frames.repeat(1, 1, 3, 1, 1)
 
@@ -145,7 +150,7 @@ def make_model(precondition_size, frame_size, num_actions):
         num_actions=num_actions,
         action_embedding_size=16,
         rnn_hidden_size=32,
-        recurrent_skip=2,
+        recurrent_skip=4,
     )
 
 

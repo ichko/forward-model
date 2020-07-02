@@ -164,6 +164,7 @@ def numpy_img_dims(imgs):
 def get_example_rollout(info, id=0, show=False):
     import matplotlib.pyplot as plt
     from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+    from matplotlib import cm
 
     if show:
         y = info['y'][id]
@@ -175,6 +176,13 @@ def get_example_rollout(info, id=0, show=False):
     y = numpy_img_dims(y)
     y_pred = numpy_img_dims(y_pred)
     diff = abs(y - y_pred)
+
+    # y = y[:, :, :, 0]
+    # y_pred = y_pred[:, :, :, 0]
+
+    # y = cm.viridis(y)[:, :, :, :3]
+    # y_pred = cm.viridis(y_pred)[:, :, :, :3]
+    # diff = cm.viridis(diff)[:, :, :, :3]
 
     num_imgs = 12
     img_range = list(enumerate(range(0, len(y), len(y) // num_imgs + 1)))
@@ -214,4 +222,4 @@ def get_example_rollout(info, id=0, show=False):
         image = np.asarray(buf)
         plt.close()
 
-    return image
+        return image

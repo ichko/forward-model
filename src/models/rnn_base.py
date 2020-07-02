@@ -85,7 +85,7 @@ class RNNBase(tu.BaseModule):
         self.optim = T.optim.Adam(self.parameters(), lr=1)
 
         def lr_lambda(it):
-            return lr / (it // 20000 + 1)
+            return lr / (it // 15000 + 1)
 
         self.scheduler = T.optim.lr_scheduler.LambdaLR(
             self.optim,

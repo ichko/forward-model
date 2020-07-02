@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 
 
 def main():
-    hparams, _ = get_hparams('rnn_spatial_transformer_pong')
+    hparams, _ = get_hparams('rnn_spatial_asset_transformer_pong')
 
     env = make_preprocessed_env(
         hparams.env_name,
@@ -34,16 +34,6 @@ def main():
     model.eval()
     model.preload_weights()
     model = model.to('cuda')
-
-    # assets = model.assets[0, 0].detach().cpu().numpy().transpose(1, 2, 0)
-    # img = np.concatenate(
-    #     [assets[:, :, i] for i in range(assets.shape[2])],
-    #     axis=1,
-    # )
-    # plt.imshow(img)
-    # plt.show()
-
-    # exit(0)
 
     obs = env.reset()
     input_frames = []
@@ -67,7 +57,7 @@ def main():
     Renderer.init_window(900, 300)
 
     random_agent = lambda _: env.action_space.sample()
-    pong_agent = PONGAgent(env, stochasticity=0.2)
+    pong_agent = PONGAgent(env, stochasticity=0.8)
     agent = pong_agent if 'TwoPlayerPong' in hparams.env_name else random_agent
 
     y = []
