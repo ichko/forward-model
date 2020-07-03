@@ -57,14 +57,14 @@ def main():
         transformed_assets = model.transform_frame([precond, model.assets])
         transformed_assets = transformed_assets[0, 0].detach().cpu().numpy()
         transformed_assets = transformed_assets.transpose(1, 2, 0)
-        transformed_assets = sigmoid(transformed_assets.sum(2))
+        transformed_assets = transformed_assets.sum(2)
         transformed_assets = cm.viridis(transformed_assets)[:, :, :3]
 
         Renderer.show_frame(transformed_assets)
 
         plt.imshow(img, cmap='viridis')
         plt.show()
-    exit(0)
+        exit(0)
 
     obs = env.reset()
     input_frames = []

@@ -86,10 +86,9 @@ def get_hparams(config_id):
         ),
         rnn_spatial_asset_transformer_pong=dict(
             env_name='TwoPlayerPong-32-v0',
-            its=50_000,
             lr=0.0005,
             model='rnn_spatial_asset_transformer',
-            bs=64,
+            bs=32,
             precondition_size=1,
             max_seq_len=64,
             min_seq_len=16,

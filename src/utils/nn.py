@@ -320,12 +320,17 @@ def time_distribute(module, input=None):
     """
     if input is None: return time_distribute_decorator(module)
 
-    bs = input.size(0)
-    seq_len = input.size(1)
-    input = input.reshape(-1, *input.shape[2:])
+    shape = input[0].size() if type(input) is list else input.size()
+    bs = shape[0]
+    seq_len = shape[1]
+
+    if type(input) is list:
+        input = [i.reshape(-1, *i.shape[2:]) for i in input]
+    else:
+        input = input.reshape(-1, *shape[2:])
 
     out = module(input)
-    out = out.reshape(bs, seq_len, *out.shape[1:])
+    out = out.view(bs, seq_len, *out.shape[1:])
 
     return out
 

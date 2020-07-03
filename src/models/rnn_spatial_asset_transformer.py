@@ -44,8 +44,8 @@ class Model(RNNBase):
         self.num_assets = 3
         self.initialized = False
         self.assets = nn.Parameter(
-            T.zeros(1, 1, self.num_assets, *self.frame_size[::-1]))
-        self.assets.requires_grad = False
+            T.randn(1, 1, self.num_assets, *self.frame_size[::-1]))
+        self.assets.requires_grad = True
 
         # self.frame_precondition = nn.Sequential(
         #     tu.cat_channels(),
@@ -69,8 +69,8 @@ class Model(RNNBase):
                     i=rnn_hidden_size,
                     num_channels=self.num_assets,
                 ),
-                # tu.conv_block(i=self.num_assets, o=64, ks=9, s=1, p=4),
-                # tu.conv_block(i=64, o=3, ks=9, s=1, p=4, a=nn.Sigmoid()),
+                # tu.conv_block(i=self.num_assets, o=16, ks=7, s=1, p=3),
+                # tu.conv_block(i=16, o=3, ks=5, s=1, p=2, a=nn.Sigmoid()),
             ))
 
     def forward(self, x):
@@ -82,14 +82,13 @@ class Model(RNNBase):
         bs = actions.size(0)
         seq_len = actions.size(1)
 
-        if not self.initialized:
-            self.initialized = True
-            f = frames[0, 0, 0].clone()
-            delim = 6
-            self.assets.data[0, 0, 0][:, :delim] = f[:, :delim]
-            self.assets.data[0, 0, 1][:, -delim:] = f[:, -delim:]
-            self.assets.data[0, 0, 2][:, delim:-delim] = f[:, delim:-delim]
-            self.assets.requires_grad = False
+        # if not self.initialized:
+        #     self.initialized = True
+        #     f = frames[0, 0, 0].clone()
+        #     delim = 6
+        #     self.assets.data[0, 0, 0][:, :delim] = f[:, :delim]
+        #     self.assets.data[0, 0, 1][:, -delim:] = f[:, -delim:]
+        #     self.assets.data[0, 0, 2][:, delim:-delim] = f[:, delim:-delim]
 
         # If precondition with frames
         if len(precondition.shape) == 5:  # (bs, num_frames, 3, H, W)
@@ -103,6 +102,8 @@ class Model(RNNBase):
 
         assets = self.assets.repeat(bs, seq_len, 1, 1, 1)
         pred_frames = self.transform_frame([rnn_out_vectors, assets])
+        self.transformed_assets = pred_frames.clone()
+
         pred_frames = pred_frames.mean(dim=2, keepdim=True)
         pred_frames = T.sigmoid(pred_frames)
         pred_frames = pred_frames.repeat(1, 1, 3, 1, 1)
