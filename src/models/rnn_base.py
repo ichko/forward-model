@@ -5,6 +5,7 @@ import numpy as np
 
 import torch as T
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 class RNNCell(nn.Module):
@@ -91,6 +92,40 @@ class RNNBase(tu.BaseModule):
             self.optim,
             lr_lambda=lr_lambda,
         )
+
+    
+
+    def optim_step(self, batch):
+        actions = batch['actions']
+        observations = batch['observations']
+        terminals = batch['terminals']
+
+        if 'meta' in batch and 'direction' in batch['meta']:
+            precondition = batch['meta']['direction']
+        else:
+            precondition = observations[:, :self.num_precondition_frames]
+
+        actions = actions[:, self.num_precondition_frames - 1:-1]
+        input_frames = observations[:, self.num_precondition_frames - 1:-1]
+
+        terminals = T.BoolTensor(terminals).to(self.device)
+        terminals = terminals[:, self.num_precondition_frames:]
+
+        observations = T.FloatTensor(observations).to(self.device)
+        y_true = observations[:, self.num_precondition_frames:]
+
+        y_pred = self([actions, precondition, input_frames])
+        y_pred = tu.mask_sequence(y_pred, ~terminals)
+
+        loss = F.binary_cross_entropy(y_pred, y_true)
+
+        if loss.requires_grad:
+            self.optim.zero_grad()
+            loss.backward()
+            self.optim.step()
+            self.scheduler.step()
+
+        return loss, {'y': y_true, 'y_pred': y_pred}
 
 
 def base_sanity_check(make_model):
