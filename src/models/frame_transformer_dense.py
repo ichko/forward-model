@@ -24,7 +24,7 @@ class Model(tu.BaseModule):
         self.precondition_channels = num_precondition_frames * 3
         self.num_precondition_frames = num_precondition_frames
 
-        self.compute_precondition = nn.Sequential(
+        self.precondition_encoder = nn.Sequential(
             nn.Dropout(0.65),
             tu.cat_channels(),
             tu.reshape(-1, self.precondition_channels * 32 * 32),
@@ -41,7 +41,7 @@ class Model(tu.BaseModule):
             embedding_dim=action_embedding_size,
         )
 
-        self.to_frame = nn.Sequential(
+        self.renderer = nn.Sequential(
             tu.dense(i=hidden_size + action_embedding_size, o=128),
             nn.BatchNorm1d(128),
             tu.dense(i=128, o=128),
@@ -63,13 +63,13 @@ class Model(tu.BaseModule):
         frames = frames.to(self.device)
 
         for i in range(seq_len):
-            precondition_map = self.compute_precondition(precondition)
+            precondition_map = self.precondition_encoder(precondition)
             action_vector = action_vectors[:, i]
             action_precondition_vec = T.cat(
                 [precondition_map, action_vector],
                 dim=1,
             )
-            frame = self.to_frame(action_precondition_vec)
+            frame = self.renderer(action_precondition_vec)
 
             frames[:, i] = frame
             precondition = precondition.roll(-1, dims=1)
@@ -136,13 +136,13 @@ class Model(tu.BaseModule):
         )
 
 
-def make_model(precondition_size, frame_size, num_actions):
+def make_model(config):
     return Model(
-        num_precondition_frames=precondition_size,
-        frame_size=frame_size,
-        num_actions=num_actions,
-        action_embedding_size=32,
-        hidden_size=64,
+        num_precondition_frames=config['precondition_size'],
+        frame_size=config['frame_size'],
+        num_actions=config['num_actions'],
+        action_embedding_size=config['action_embedding_size'],
+        hidden_size=config['hidden_size'],
     )
 
 
@@ -153,11 +153,13 @@ def sanity_check():
     max_seq_len = 32
     bs = 32
 
-    model = make_model(
-        num_precondition_frames,
-        frame_size,
-        num_actions,
-    ).to('cuda')
+    model = make_model(dict(
+        precondition_size=num_precondition_frames,
+        frame_size=frame_size,
+        num_actions=num_actions,
+        action_embedding_size=32,
+        hidden_size=64,
+    )).to('cuda')
 
     print(model.summary())
 
