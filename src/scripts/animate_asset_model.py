@@ -29,7 +29,7 @@ def sigmoid(x):
     return 1 / (1 + np.exp(-x))
 
 
-fig = plt.figure()
+fig = plt.figure(figsize=(5, 8))
 
 ax1 = plt.subplot(411)
 ax2 = plt.subplot(412)
@@ -38,7 +38,7 @@ ax4 = plt.subplot(414)
 
 
 def main():
-    hparams, _ = get_hparams('rnn_spatial_asset_transformer_pong')
+    hparams = get_hparams('rnn_spatial_asset_transformer_pong')
 
     env = make_preprocessed_env(
         hparams.env_name,
@@ -69,9 +69,14 @@ def main():
 
     pred_obs = model.reset(precondition, precondition_actions, input_frames)
 
-    agent = lambda _: env.action_space.sample()
+    agent = lambda _: 2
 
+    i = 0
     while not done:
+        i += 1
+        if i >= 50:
+            break
+
         assets = model.assets[0, -1].detach().cpu().numpy().transpose(1, 2, 0)
         merged_assets = np.concatenate(
             [assets[:, :, i] for i in range(assets.shape[2])],
@@ -109,6 +114,7 @@ def main():
 
         fig.tight_layout()
         plt.pause(0.05)
+        plt.savefig(f'.data/rollouts/last.png')
         plt.cla()
 
         action = agent(obs)

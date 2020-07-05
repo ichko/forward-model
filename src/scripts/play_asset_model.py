@@ -27,7 +27,7 @@ def sigmoid(x):
 
 
 def main():
-    hparams, _ = get_hparams('rnn_spatial_asset_transformer_pong')
+    hparams = get_hparams('rnn_spatial_asset_transformer_pong')
 
     env = make_preprocessed_env(
         hparams.env_name,

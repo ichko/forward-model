@@ -10,16 +10,16 @@ def get_model(hparams):
     import gym
     import sneks
 
+    env = gym.make(hparams.env_name)
     model_module = importlib.import_module(f'src.models.{hparams.model}')
     # model_module.sanity_check()
 
-    env = gym.make(hparams.env_name)
+    hparams_dict = vars(hparams)
+    model = model_module.make_model({
+        **hparams_dict,
+        'num_actions': env.action_space.n,
+    })
 
-    model = model_module.make_model(
-        precondition_size=hparams.precondition_size,
-        frame_size=hparams.frame_size,
-        num_actions=env.action_space.n,
-    )
     model.make_persisted(f'.models/{model.name}_{hparams.env_name}.h5')
 
     return model
@@ -105,6 +105,7 @@ def main(hparams, args):
     model = model.to(hparams.device)
 
     logger = WAndBLogger(
+        name=args.config,
         info_log_interval=hparams.log_interval,
         model=model,
         hparams=hparams,
@@ -152,7 +153,6 @@ if __name__ == '__main__':
 
     parser.add_argument(
         '--config',
-        default='rnn_spatial_transformer_pong',
         help='id of configuration',
     )
     parser.add_argument('--from-scratch', action='store_false')
@@ -160,10 +160,10 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    hparams, config_dict = get_hparams(args.config)
+    hparams = get_hparams(args.config)
 
     print(f'## Start training with configuration "{hparams.model.upper()}"')
-    pp.pprint(config_dict)
+    pp.pprint(vars(hparams))
 
     if not IS_DEBUG:
         print('\n\nPress ENTER to continue')
