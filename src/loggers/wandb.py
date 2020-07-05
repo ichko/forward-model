@@ -9,7 +9,7 @@ if IS_DEBUG:
 
 
 class WAndBLogger:
-    def __init__(self, info_log_interval, model, hparams, type):
+    def __init__(self, name, info_log_interval, model, hparams, type):
         assert type in ['video', 'image'], \
             '`type` should be "video" or "image"'
 
@@ -17,10 +17,11 @@ class WAndBLogger:
         self.info_log_interval = info_log_interval
 
         wandb.init(
+            name=name,
             dir='.reports',
-            project='forward_models_2',
+            project='forward_models',
             config=dict(
-                hparams._get_kwargs(),
+                vars(hparams),
                 name=model.name,
                 model_num_params=model.count_parameters(),
             ),
