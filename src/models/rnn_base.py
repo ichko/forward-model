@@ -48,9 +48,14 @@ class RNNBase(tu.BaseModule):
         action_embedding_size,
         rnn_hidden_size,
         num_rnn_layers,
-        recurrent_skip=1,
+        recurrent_skip,
+        precondition_type,
     ):
         super().__init__()
+        assert precondition_type in ['frame', 'meta'], \
+            'Incorrect precondition type'
+
+        self.is_frame_precond = precondition_type == 'frame'
 
         self.rnn = RNNCell(
             action_embedding_size,
@@ -93,14 +98,13 @@ class RNNBase(tu.BaseModule):
             lr_lambda=lr_lambda,
         )
 
-    
-
     def optim_step(self, batch):
         actions = batch['actions']
         observations = batch['observations']
         terminals = batch['terminals']
 
-        if 'meta' in batch and 'direction' in batch['meta']:
+        valid_meta = 'meta' in batch and 'direction' in batch['meta']
+        if not self.is_frame_precond and valid_meta:
             precondition = batch['meta']['direction']
         else:
             precondition = observations[:, :self.num_precondition_frames]

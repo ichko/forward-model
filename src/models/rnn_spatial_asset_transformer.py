@@ -20,12 +20,14 @@ class Model(RNNBase):
         action_embedding_size,
         rnn_hidden_size,
         recurrent_skip,
+        precondition_type,
     ):
         super().__init__(
             action_embedding_size,
             rnn_hidden_size,
             rnn_num_layers,
             recurrent_skip,
+            precondition_type,
         )
         self.name = 'RNN Spatial Asset Transformer'
 
@@ -117,6 +119,7 @@ def make_model(config):
         action_embedding_size=config['action_embedding_size'],
         rnn_hidden_size=config['hidden_size'],
         recurrent_skip=config['recurrent_skip'],
+        precondition_type=config['precondition_type'],
     )
 
 

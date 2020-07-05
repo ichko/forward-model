@@ -7,40 +7,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-def get_activation():
-    LEAKY_SLOPE = 0.1
-    return nn.LeakyReLU(LEAKY_SLOPE, inplace=True)
-
-
-def one_hot(t, one_hot_size=None):
-    one_hot_size = t.max() + 1 if one_hot_size is None else one_hot_size
-
-    hot = T.zeros((t.size(0), one_hot_size))
-    hot[T.arange(t.size(0)), t] = 1
-    return hot
-
-
-def cat_channels():
-    """
-        Concatenate number of channels in a single tensor
-        Converts tensor with shape:
-            (bs, num_channels, channel_size, h, w)
-        to tensor with shape:
-            (bs, num_channels * channel_size, h, w)
-    """
-    class CatChannels(nn.Module):
-        def forward(self, t):
-            shape = t.size()
-            cat_dim_size = shape[1] * shape[2]
-            return t.view(-1, cat_dim_size, *shape[3:])
-
-    return CatChannels()
-
-
-def count_parameters(module):
-    return sum(p.numel() for p in module.parameters() if p.requires_grad)
-
-
 class BaseModule(nn.Module):
     def __init__(self):
         super().__init__()
@@ -77,6 +43,40 @@ class BaseModule(nn.Module):
     @property
     def device(self):
         return next(self.parameters()).device
+
+
+def get_activation():
+    LEAKY_SLOPE = 0.1
+    return nn.LeakyReLU(LEAKY_SLOPE, inplace=True)
+
+
+def one_hot(t, one_hot_size=None):
+    one_hot_size = t.max() + 1 if one_hot_size is None else one_hot_size
+
+    hot = T.zeros((t.size(0), one_hot_size))
+    hot[T.arange(t.size(0)), t] = 1
+    return hot
+
+
+def cat_channels():
+    """
+        Concatenate number of channels in a single tensor
+        Converts tensor with shape:
+            (bs, num_channels, channel_size, h, w)
+        to tensor with shape:
+            (bs, num_channels * channel_size, h, w)
+    """
+    class CatChannels(nn.Module):
+        def forward(self, t):
+            shape = t.size()
+            cat_dim_size = shape[1] * shape[2]
+            return t.view(-1, cat_dim_size, *shape[3:])
+
+    return CatChannels()
+
+
+def count_parameters(module):
+    return sum(p.numel() for p in module.parameters() if p.requires_grad)
 
 
 def batch_conv(x, w, p=0, s=1):

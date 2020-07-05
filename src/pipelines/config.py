@@ -3,23 +3,21 @@ import argparse
 
 def get_hparams(config_id):
     defaults = dict(
+        # env_name='TwoPlayerPong-32-v0',
+        # env_name='CubeCrash-v0',
+        # env_name='snek-rgb-16-v1',
+        # env_name='CartPole-v1',
+        # env_name='LunarLander-v2',
         log_interval=1000,
         frame_size=(32, 32),
         its=50_000,
         bs=32,
         lr=0.0002,
         device='cuda',
-        # env_name='TwoPlayerPong-32-v0',
-        # env_name='CubeCrash-v0',
-        # env_name='snek-rgb-16-v1',
-        # env_name='CartPole-v1',
-        # env_name='LunarLander-v2',
-        precondition_size=3,
-        max_seq_len=128,
-        min_seq_len=35,
         moving_window_slices=None,
-        rnn_skip=1,
+        recurrent_skip=1,
         rnn_num_layers=2,
+        precondition_type='frame',
     )
 
     configs = dict(
@@ -50,30 +48,6 @@ def get_hparams(config_id):
         ),
 
         ## RNN Based
-        rnn_deconvolve_cube=dict(
-            env_name='CubeCrash-v0',
-            lr=0.001,
-            model='rnn_deconvolve',
-            bs=64,
-            precondition_size=1,
-            max_seq_len=32,
-            min_seq_len=2,
-            moving_window_slices=None,
-            action_embedding_size=32,
-            hidden_size=32,
-        ),
-        rnn_deconvolve_pong=dict(
-            env_name='TwoPlayerPong-32-v0',
-            lr=0.001,
-            model='rnn_deconvolve',
-            bs=32,
-            precondition_size=3,
-            max_seq_len=128,
-            min_seq_len=64,
-            moving_window_slices=None,
-            action_embedding_size=32,
-            hidden_size=32,
-        ),
         rnn_dense_cube=dict(
             env_name='CubeCrash-v0',
             lr=0.001,
@@ -98,6 +72,30 @@ def get_hparams(config_id):
             action_embedding_size=32,
             hidden_size=64,
         ),
+        rnn_deconvolve_cube=dict(
+            env_name='CubeCrash-v0',
+            lr=0.001,
+            model='rnn_deconvolve',
+            bs=64,
+            precondition_size=1,
+            max_seq_len=32,
+            min_seq_len=2,
+            moving_window_slices=None,
+            action_embedding_size=32,
+            hidden_size=32,
+        ),
+        rnn_deconvolve_pong=dict(
+            env_name='TwoPlayerPong-32-v0',
+            lr=0.001,
+            model='rnn_deconvolve',
+            bs=32,
+            precondition_size=3,
+            max_seq_len=128,
+            min_seq_len=64,
+            moving_window_slices=None,
+            action_embedding_size=32,
+            hidden_size=32,
+        ),
 
         ## Spatial Transformer
         rnn_spatial_transformer_cube=dict(
@@ -114,6 +112,7 @@ def get_hparams(config_id):
         ),
         rnn_spatial_transformer_pong=dict(
             env_name='TwoPlayerPong-32-v0',
+            precondition_type='meta',
             lr=0.002,
             model='rnn_spatial_transformer',
             bs=16,
@@ -126,6 +125,7 @@ def get_hparams(config_id):
         ),
         rnn_spatial_asset_transformer_pong=dict(
             env_name='TwoPlayerPong-32-v0',
+            precondition_type='meta',
             lr=0.0005,
             model='rnn_spatial_asset_transformer',
             bs=64,
