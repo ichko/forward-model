@@ -1,76 +1,27 @@
+import sys
 import argparse
 import pprint
+
+import torch
+from tqdm.auto import trange
+
 from src.utils import IS_DEBUG
-
-from src.pipelines.config import get_hparams
-
-
-def get_model(hparams):
-    import importlib
-    import gym
-    import sneks
-
-    env = gym.make(hparams.env_name)
-    model_module = importlib.import_module(f'src.models.{hparams.model}')
-    # model_module.sanity_check()
-
-    hparams_dict = vars(hparams)
-    model = model_module.make_model({
-        **hparams_dict,
-        'num_actions': env.action_space.n,
-    })
-
-    model.make_persisted(f'.models/{model.name}_{hparams.env_name}.h5')
-
-    return model
+from src.loggers.wandb import WAndBLogger
+from src.utils import get_example_rollout
+from src.pipeline.config import get_hparams
+from src.pipeline.common import get_model, get_data_generator
 
 
-def get_data_generator(
-    env_name,
-    bs,
-    min_seq_len,
-    max_seq_len,
-    frame_size,
-    moving_window_slices,
-    num_processes,
-    stochasticity=None,
-):
-    import random
-    from src.data.mp_rollout_generator import preprocessed_mp_generator
-    from src.data.pong import PONGAgent
+def train(config_id, hparams, from_main=False):
+    pp = pprint.PrettyPrinter(4)
 
-    def pong_agent_ctor(env):
-        nonlocal stochasticity
-        if stochasticity is None:
-            stochasticity = random.uniform(0.5, 1)
+    print(f'## Start training with configuration "{hparams.model.upper()}"')
+    pp.pprint(vars(hparams))
 
-        return PONGAgent(env, stochasticity)
-
-    agent_ctor = None  # random agenet
-    if 'TwoPlayerPong' in env_name:
-        agent_ctor = pong_agent_ctor
-
-    return preprocessed_mp_generator(
-        env_name=env_name,
-        bs=bs,
-        min_seq_len=min_seq_len,
-        max_seq_len=max_seq_len,
-        agent_ctor=agent_ctor,
-        frame_size=frame_size,
-        num_processes=num_processes,
-        buffer_size=512,
-        moving_window_slices=moving_window_slices,
-    )
-
-
-def main(hparams, args):
-    import sys
-    from src.loggers.wandb import WAndBLogger
-
-    import torch
-    from tqdm.auto import trange
-
-    from src.utils import get_example_rollout
+    if not IS_DEBUG and from_main:
+        print('\n\nPress ENTER to continue')
+        _ = input()
+        print('...')
 
     train_data_generator = get_data_generator(
         env_name=hparams.env_name,
@@ -94,7 +45,7 @@ def main(hparams, args):
 
     model = get_model(hparams)
 
-    # if args.from_scratch:
+    # if 'from_scratch' in sys.argv:
     #     try:
     #         model.preload_weights()
     #         print('>>> MODEL PRELOADED')
@@ -104,8 +55,9 @@ def main(hparams, args):
     model.configure_optim(lr=hparams.lr)
     model = model.to(hparams.device)
 
+
     logger = WAndBLogger(
-        name=args.config,
+        name=config_id,
         info_log_interval=hparams.log_interval,
         model=model,
         hparams=hparams,
@@ -117,6 +69,7 @@ def main(hparams, args):
     tr = trange(hparams.its)
 
     for it in tr:
+        print(it)
         batch = next(train_data_generator)
         train_loss, train_info = model.optim_step(batch)
         train_loss = train_loss.item()
@@ -148,26 +101,14 @@ def main(hparams, args):
 
 
 if __name__ == '__main__':
-    pp = pprint.PrettyPrinter(4)
     parser = argparse.ArgumentParser()
-
     parser.add_argument(
         '--config',
         help='id of configuration',
     )
     parser.add_argument('--from-scratch', action='store_false')
     parser.add_argument('--debug', action='store_true')
-
     args = parser.parse_args()
 
     hparams = get_hparams(args.config)
-
-    print(f'## Start training with configuration "{hparams.model.upper()}"')
-    pp.pprint(vars(hparams))
-
-    if not IS_DEBUG:
-        print('\n\nPress ENTER to continue')
-        _ = input()
-        print('...')
-
-    main(hparams, args)
+    train(args.config, hparams, from_main=True)

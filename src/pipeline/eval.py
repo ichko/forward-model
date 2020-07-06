@@ -6,22 +6,12 @@ from matplotlib import cm
 from tqdm.auto import tqdm
 import os
 
-np.random.seed(1)
-random.seed(1)
-T.manual_seed(1)
-T.backends.cudnn.deterministic = True
-T.backends.cudnn.benchmark = False
-os.environ['PYTHONHASHSEED'] = str(1)
-
-from src.pipelines.main import get_model, get_hparams
+from src.pipeline.train import get_model, get_hparams
 from src.data.pong import PONGAgent
 from src.utils import make_preprocessed_env
-from src.utils.renderer import Renderer
 
 
-def main():
-    hparams = get_hparams('rnn_spatial_asset_transformer_cube')
-
+def evaluate(hparams):
     env = make_preprocessed_env(
         hparams.env_name,
         frame_size=hparams.frame_size,
@@ -61,7 +51,7 @@ def main():
                     raise Exception('env done too early')
 
             precondition = input_frames[::]
-            if hasattr(env, 'meta') and 'direction' in env.meta:
+            if hparams.precondition_type == 'meta':
                 precondition = env.meta['direction']
 
             pred_obs = model.reset(
@@ -97,8 +87,13 @@ def main():
                 ERROR += EP_ERROR / step_id
                 break
 
-    print(f'MSE:', ERROR / num_episodes)
+    result = ERROR / num_episodes
+    print(f'MSE:', result)
+
+    return result
+
 
 
 if __name__ == '__main__':
-    main()
+    hparams = get_hparams('rnn_dense_pong')
+    evaluate(hparams)
