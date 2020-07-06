@@ -117,7 +117,7 @@ def try_colored_traceback():
 try_colored_traceback()
 
 
-def seed_rands(seed=1):
+def random_seed(seed=1):
     np.random.seed(seed)
     random.seed(seed)
     T.manual_seed(seed)

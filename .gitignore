@@ -3,5 +3,6 @@ __pycache__
 wandb
 .reports
 .models
+.results
 .data
 .ipynb_checkpoints

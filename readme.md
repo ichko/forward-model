@@ -9,7 +9,7 @@ Experiments and models for my masters thesis on learning environment dynamics fr
 - [Profiling code](https://toucantoco.com/en/tech-blog/tech/python-performance-optimization)
 
   - `pip install profiling`
-  - `profiling live-profile -m src.pipelines.rnn -- --debug`
+  - `profiling live-profile -m src.pipeline.train -- --debug`
 
 - General stuff
 

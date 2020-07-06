@@ -5,15 +5,8 @@ import random
 import torch as T
 import os
 
-np.random.seed(1)
-random.seed(1)
-T.manual_seed(1)
-T.backends.cudnn.deterministic = True
-T.backends.cudnn.benchmark = False
-os.environ['PYTHONHASHSEED'] = str(1)
-
-from src.pipelines.main import get_model
-from src.pipelines.config import get_hparams
+from src.pipeline.main import get_model
+from src.pipeline.config import get_hparams
 
 from src.data.pong import PONGAgent
 from src.utils import make_preprocessed_env, get_example_rollout
