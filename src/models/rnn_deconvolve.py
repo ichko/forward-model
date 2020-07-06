@@ -41,28 +41,34 @@ class Model(RNNBase):
         )
 
         self.name = 'RNN Frame Deconvolve'
-
-        self.frame_size = frame_size
         self.precondition_channels = num_precondition_frames * 3
         self.num_precondition_frames = num_precondition_frames
-
-        self.precondition_encoder = nn.Sequential(
-            tu.cat_channels(),
-            tu.conv_to_flat(
-                input_size=frame_size,
-                channel_sizes=[self.precondition_channels, 64, 64],
-                ks=5,
-                s=2,
-                out_size=rnn_hidden_size,
-            ),
-        )
+        
+        if precondition_type == 'frame':
+            self.precondition_encoder = nn.Sequential(
+                tu.cat_channels(),
+                tu.conv_to_flat(
+                    input_size=frame_size,
+                    channel_sizes=[self.precondition_channels, 64, 64],
+                    ks=5,
+                    s=2,
+                    out_size=rnn_hidden_size,
+                ),
+            )
+        else:
+            self.precondition_encoder = nn.Sequential(
+                tu.dense(i=2, o=128),
+                nn.BatchNorm1d(128),
+                tu.dense(i=128, o=rnn_hidden_size),
+                nn.BatchNorm1d(rnn_hidden_size),
+            )
 
         self.action_embedding = nn.Embedding(
             num_embeddings=num_actions,
             embedding_dim=action_embedding_size,
         )
 
-        self.deconvolve_to_frame = tu.time_distribute(
+        self.renderer = tu.time_distribute(
             nn.Sequential(
                 tu.dense(i=rnn_hidden_size, o=512),
                 tu.reshape(-1, 128, 2, 2),
@@ -85,7 +91,7 @@ class Model(RNNBase):
         precondition_map = self.precondition_encoder(precondition)
         action_vectors = self.action_embedding(actions)
         rnn_out_vectors, _ = self.rnn(action_vectors, precondition_map)
-        frames = self.deconvolve_to_frame(rnn_out_vectors)
+        frames = self.renderer(rnn_out_vectors)
 
         return frames
 

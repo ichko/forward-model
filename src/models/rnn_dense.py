@@ -36,20 +36,21 @@ class Model(RNNBase):
         self.precondition_channels = num_precondition_frames * 3
         self.num_precondition_frames = num_precondition_frames
 
-        # self.precondition_encoder = nn.Sequential(
-        #     tu.dense(i=2, o=128),
-        #     nn.BatchNorm1d(128),
-        #     tu.dense(i=128, o=rnn_hidden_size),
-        #     nn.BatchNorm1d(rnn_hidden_size),
-        # )
-
-        self.precondition_encoder = nn.Sequential(
-            tu.reshape(-1, self.precondition_channels * 32 * 32),
-            tu.dense(i=self.precondition_channels * 32 * 32, o=128),
-            nn.BatchNorm1d(128),
-            tu.dense(i=128, o=rnn_hidden_size),
-            nn.BatchNorm1d(rnn_hidden_size),
-        )
+        if precondition_type == 'frame':
+            self.precondition_encoder = nn.Sequential(
+                tu.reshape(-1, self.precondition_channels * 32 * 32),
+                tu.dense(i=self.precondition_channels * 32 * 32, o=128),
+                nn.BatchNorm1d(128),
+                tu.dense(i=128, o=rnn_hidden_size),
+                nn.BatchNorm1d(rnn_hidden_size),
+            )
+        else:
+            self.precondition_encoder = nn.Sequential(
+                tu.dense(i=2, o=128),
+                nn.BatchNorm1d(128),
+                tu.dense(i=128, o=rnn_hidden_size),
+                nn.BatchNorm1d(rnn_hidden_size),
+            )
 
         self.action_embedding = nn.Embedding(
             num_embeddings=num_actions,
