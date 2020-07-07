@@ -9,7 +9,7 @@ import random
 import torch as T
 import os
 
-from src.pipeline.main import get_model
+from src.pipeline.common import get_model
 from src.pipeline.config import get_hparams
 
 from src.data.pong import PONGAgent

@@ -93,7 +93,6 @@ def evaluate(hparams):
     return result
 
 
-
 if __name__ == '__main__':
     hparams = get_hparams('rnn_dense_pong')
     evaluate(hparams)

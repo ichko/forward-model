@@ -55,7 +55,6 @@ def train(config_id, hparams, from_main=False):
     model.configure_optim(lr=hparams.lr)
     model = model.to(hparams.device)
 
-
     logger = WAndBLogger(
         name=config_id,
         info_log_interval=hparams.log_interval,
@@ -69,7 +68,6 @@ def train(config_id, hparams, from_main=False):
     tr = trange(hparams.its)
 
     for it in tr:
-        print(it)
         batch = next(train_data_generator)
         train_loss, train_info = model.optim_step(batch)
         train_loss = train_loss.item()

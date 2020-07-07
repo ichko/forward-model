@@ -5,7 +5,7 @@ import random
 import torch as T
 import os
 
-from src.pipeline.main import get_model
+from src.pipeline.train import get_model
 from src.pipeline.config import get_hparams
 
 from src.data.pong import PONGAgent
@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 
 
 def main():
-    hparams = get_hparams('rnn_spatial_asset_transformer_pong')
+    hparams = get_hparams('rnn_deconvolve_pong')
 
     env = make_preprocessed_env(
         hparams.env_name,
@@ -42,7 +42,7 @@ def main():
             raise Exception('env done too early')
 
     precondition = input_frames[::]
-    if hasattr(env, 'meta') and 'direction' in env.meta:
+    if hparams.precondition_type == 'meta':
         precondition = env.meta['direction']
 
     pred_obs = model.reset(precondition, precondition_actions, input_frames)
@@ -57,7 +57,7 @@ def main():
     y_pred = []
 
     while not done:
-        # time.sleep(1 / 5)
+        # time.sleep(1 / 1)
         y.append(obs)
         y_pred.append(pred_obs)
 
