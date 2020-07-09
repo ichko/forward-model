@@ -25,7 +25,7 @@ def evaluate(hparams):
     max_ep_len = 64
     min_ep_len = 32
     num_episodes = 100
-    ERROR = 0
+    ERRORS = []
 
     for _ in tqdm(range(num_episodes)):
         while True:
@@ -46,7 +46,7 @@ def evaluate(hparams):
                 input_frames.append(obs)
                 precondition_actions.append(action)
 
-                obs, reward, done, _info = env.step(action)
+                obs, _reward, done, _info = env.step(action)
                 if done:
                     raise Exception('env done too early')
 
@@ -84,13 +84,14 @@ def evaluate(hparams):
 
             if step_id >= min_ep_len:
                 # print(f'EP ERROR: {EP_ERROR}, EP LEN: {step_id}')
-                ERROR += EP_ERROR / step_id
+                ERRORS.append(EP_ERROR / step_id)
                 break
 
-    result = ERROR / num_episodes
-    print(f'MSE:', result)
+    mean = np.mean(ERRORS)
+    std = np.std(ERRORS)
+    print(f'MSE: {mean:.6f} ± {std:.6f}')
 
-    return result
+    return mean
 
 
 if __name__ == '__main__':
