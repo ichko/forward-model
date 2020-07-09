@@ -1,5 +1,5 @@
 import gym
-import  time
+import time
 
 import keyboard
 
@@ -24,9 +24,9 @@ def play_mario():
         # print(step)
 
         action = env.action_space.sample()
-        action = 0
-        if keyboard.is_pressed('a'):
-            action = 4
+        # action = 0
+        # if keyboard.is_pressed('a'):
+        #     action = 4
 
         obs, reward, done, info = env.step(action)
         print(obs.shape)

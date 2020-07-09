@@ -153,13 +153,14 @@ def sanity_check():
     max_seq_len = 32
     bs = 32
 
-    model = make_model(dict(
-        precondition_size=num_precondition_frames,
-        frame_size=frame_size,
-        num_actions=num_actions,
-        action_embedding_size=32,
-        hidden_size=64,
-    )).to('cuda')
+    model = make_model(
+        dict(
+            precondition_size=num_precondition_frames,
+            frame_size=frame_size,
+            num_actions=num_actions,
+            action_embedding_size=32,
+            hidden_size=64,
+        )).to('cuda')
 
     print(model.summary())
 

@@ -26,6 +26,9 @@ def train_eval(config_id, hparams):
 def main():
     items = list(enumerate(configs.items()))
     for i, (config_id, _config) in items:
+
+        print(f'Config {config_id} ({i + 1}/{len(items)})')
+
         hparams = get_hparams(config_id)
         experiment = mp.Process(target=train_eval, args=(
             config_id,
@@ -35,8 +38,7 @@ def main():
         experiment.start()
         experiment.join()
 
-        print(f'\n>>> Done with {config_id} ({i + 1}/{len(items)})\n')
-        print('========================\n')
+        print('========================')
 
 
 if __name__ == '__main__':

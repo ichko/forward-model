@@ -62,7 +62,7 @@ def main():
 
     pred_obs = model.reset(precondition, precondition_actions, input_frames)
 
-    agent = lambda _: 2
+    agent = PONGAgent(env, stochasticity=0.2)
 
     i = 0
     while not done:
