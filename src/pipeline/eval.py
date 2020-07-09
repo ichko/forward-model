@@ -76,7 +76,7 @@ def evaluate(hparams):
                 action = agent(obs)
                 # print(action)
 
-                obs, reward, done, _info = env.step(action)
+                obs, _reward, done, _info = env.step(action)
                 pred_obs = model.step(action)
 
                 if step_id >= max_ep_len:
@@ -91,7 +91,7 @@ def evaluate(hparams):
     std = np.std(ERRORS)
     print(f'MSE: {mean:.6f} ± {std:.6f}')
 
-    return mean
+    return mean, std
 
 
 if __name__ == '__main__':

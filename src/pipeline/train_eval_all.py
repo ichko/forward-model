@@ -14,11 +14,11 @@ def train_eval(config_id, hparams):
     train(config_id, hparams)
 
     random_seed()
-    result = evaluate(hparams)
+    mean, std = evaluate(hparams)
 
     with open(results_file_name, 'a+') as f:
         f.write(f'CONFIG: {config_id}\n')
-        f.write(f'MSE: {result}\n')
+        f.write(f'MSE: {mean:.6f} ± {std:.6f}\n')
         f.write(f'HPARAMS:{str(vars(hparams))}\n')
         f.write('========================\n')
 
