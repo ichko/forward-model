@@ -21,6 +21,7 @@ class Model(RNNBase):
         rnn_hidden_size,
         recurrent_skip,
         precondition_type,
+        fusion_type='conv',
     ):
         super().__init__(
             action_embedding_size,
@@ -29,7 +30,15 @@ class Model(RNNBase):
             recurrent_skip,
             precondition_type,
         )
-        self.name = 'RNN Spatial Asset Transformer'
+
+        self.type = fusion_type
+        assert self.type in ['conv', 'sum'], \
+            'fusion_type should be "conv" or "sum"'
+
+        if self.type == 'sum':
+            self.name = 'RNN Spatial Asset Transformer'
+        else:
+            self.name = 'RNN Spatial Asset Conv Transformer'
 
         self.frame_size = frame_size
         self.precondition_channels = num_precondition_frames * 3
@@ -65,14 +74,18 @@ class Model(RNNBase):
             embedding_dim=action_embedding_size,
         )
 
+        asset_fusser = [] if self.type == 'sum' else [
+            tu.conv_block(i=self.num_assets, o=16, ks=7, s=1, p=3),
+            tu.conv_block(i=16, o=3, ks=5, s=1, p=2, a=nn.Sigmoid())
+        ]
+
         self.transform_frame = tu.time_distribute(
             nn.Sequential(
                 tu.spatial_transformer(
                     i=rnn_hidden_size,
                     num_channels=self.num_assets,
                 ),
-                # tu.conv_block(i=self.num_assets, o=16, ks=7, s=1, p=3),
-                # tu.conv_block(i=16, o=3, ks=5, s=1, p=2, a=nn.Sigmoid()),
+                *asset_fusser,
             ))
 
     def forward(self, x):
@@ -101,12 +114,13 @@ class Model(RNNBase):
         pred_frames = self.transform_frame([rnn_out_vectors, assets])
         self.transformed_assets = pred_frames
 
-        pred_frames = pred_frames.sum(dim=2, keepdim=True)
-        pred_frames = T.sigmoid(pred_frames)
-        pred_frames = pred_frames.repeat(1, 1, 3, 1, 1)
+        if self.type == 'sum':
+            pred_frames = pred_frames.sum(dim=2, keepdim=True)
+            pred_frames = T.sigmoid(pred_frames)
+            pred_frames = pred_frames.repeat(1, 1, 3, 1, 1)
 
-        # mi, ma = pred_frames.min(), pred_frames.max()
-        # pred_frames = (pred_frames - mi) / (ma - mi)
+            # mi, ma = pred_frames.min(), pred_frames.max()
+            # pred_frames = (pred_frames - mi) / (ma - mi)
 
         return pred_frames
 
@@ -125,15 +139,17 @@ def make_model(config):
 
 
 def sanity_check():
-    base_sanity_check(lambda: make_model(dict(
-        precondition_size=2,
-        frame_size=(32, 32),
-        num_actions=3,
-        rnn_num_layers=2,
-        action_embedding_size=16,
-        hidden_size=32,
-        recurrent_skip=4,
-    )))
+    base_sanity_check(lambda: make_model(
+        dict(
+            precondition_size=2,
+            frame_size=(32, 32),
+            num_actions=3,
+            rnn_num_layers=2,
+            action_embedding_size=16,
+            hidden_size=32,
+            recurrent_skip=4,
+            precondition_type='meta',
+        )))
 
 
 if __name__ == '__main__':
