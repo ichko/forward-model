@@ -43,7 +43,7 @@ class Model(RNNBase):
         self.name = 'RNN Frame Deconvolve'
         self.precondition_channels = num_precondition_frames * 3
         self.num_precondition_frames = num_precondition_frames
-        
+
         if precondition_type == 'frame':
             self.precondition_encoder = nn.Sequential(
                 tu.cat_channels(),
@@ -110,15 +110,16 @@ def make_model(config):
 
 
 def sanity_check():
-    base_sanity_check(lambda: make_model(dict(
-        precondition_size=2,
-        frame_size=(32, 32),
-        num_actions=3,
-        rnn_num_layers=2,
-        action_embedding_size=32,
-        hidden_size=32,
-        recurrent_skip=4,
-    )))
+    base_sanity_check(lambda: make_model(
+        dict(
+            precondition_size=2,
+            frame_size=(32, 32),
+            num_actions=3,
+            rnn_num_layers=2,
+            action_embedding_size=32,
+            hidden_size=32,
+            recurrent_skip=4,
+        )))
 
 
 if __name__ == '__main__':

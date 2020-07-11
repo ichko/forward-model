@@ -4,8 +4,6 @@ Previous notebooks and experiments can be found [here](https://github.com/ichko/
 
 Experiments and models for my masters thesis on learning environment dynamics from observations.
 
- - 
-
 ## Notes and tasks
 
 - [Profiling code](https://toucantoco.com/en/tech-blog/tech/python-performance-optimization)
