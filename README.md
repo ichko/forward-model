@@ -76,7 +76,7 @@ python -m src.scripts.animate_asset_model
 
 ![Example visualization of assets](assets/assets_visualized.PNG)
 
-**Visualization of seep of 16 train runs**
+**Visualization of a seep of 16 train runs**
 
 ![Sweep of training runs](assets/sweep.PNG)
 
