@@ -34,7 +34,7 @@ You will need Python >= 3.6
 pip install -r requirements.txt
 ```
 
-2. **Execute**:
+2. **Execute:**
 
 ```sh
 wandb login
@@ -68,7 +68,7 @@ python -m src.scripts.play_model
 
 set the desired model configuration at the top of the file - as a `get_hparams` parameter.
 
-**Visualize live asset model performance:**
+**Visualize live Asset Spatial RNN model:**
 
 ```sh
 python -m src.scripts.animate_asset_model
