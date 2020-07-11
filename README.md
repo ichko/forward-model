@@ -4,6 +4,94 @@ Previous notebooks and experiments can be found [here](https://github.com/ichko/
 
 Experiments and models for my masters thesis on learning environment dynamics from observations.
 
+- [W&B project](https://app.wandb.ai/ichko/forward_models)
+- [Google Docs of my masters](https://docs.google.com/document/d/1a7fxuHeIYLJD2ZPL9yHcXiG7PGmSVxTuiN-7uU6i41k)
+- [Google Docs of the summary of my masters](https://docs.google.com/document/d/1vaje3BEKWGcNAOkqg1pZA206oVw6ojhbJNod7F8b88k)
+
+## Structure of the project
+
+```txt
+src
+  data
+  loggers           (implementation of the wnb logger)
+  models            (implementations of models)
+  pipelines
+    train           (training module)
+    eval            (evaluation module)
+    train_eval_all  (script for running train and eval on all the configurations)
+    config          (configuration of all the runs)
+  scrips            (scrips for visualization)
+  utils             (generic utilities and modules)
+```
+
+## How to run
+
+You will need Python >= 3.6
+
+1. **Install the requirements:**
+
+```sh
+pip install -r requirements.txt
+```
+
+2. **Execute**:
+
+```sh
+wandb login
+```
+
+to log in wandb and be able to view the training results.
+
+3. **Create the following folders in the root directory:**
+
+```txt
+.reports
+.models
+.results
+```
+
+4. **Run train and eval for all of the configurations setup in `src/pipelines/config` - all of the models described in the thesis.**
+
+```sh
+python -m src.pipeline.train_eval_all
+```
+
+Observe the results in the generated wnb project.
+
+## Visualizations
+
+**Visualize live model reconstruction with:**
+
+```sh
+python -m src.scripts.play_model
+```
+
+set the desired model configuration at the top of the file - as a `get_hparams` parameter.
+
+**Visualize live asset model performance:**
+
+```sh
+python -m src.scripts.animate_asset_model
+```
+
+![Example visualization of assets](assets/assets_visualized.PNG)
+
+**Visualization of seep of 16 train runs**
+
+![Sweep of training runs](assets/sweep.PNG)
+
+**Diagram of the Asset Spatial Transforming RNN**
+
+![Asset Spatial RNN](assets/asset_spatial_rnn.PNG)
+
+Described in the thesis.
+
+**Example reconstructed episodes**
+
+![Rollout 1](assets/rollout_1.PNG)
+![Rollout 2](assets/rollout_2.PNG)
+![Rollout 3](assets/rollout_3.PNG)
+
 ## Notes and tasks
 
 - [Profiling code](https://toucantoco.com/en/tech-blog/tech/python-performance-optimization)
@@ -14,7 +102,7 @@ Experiments and models for my masters thesis on learning environment dynamics fr
 - General stuff
 
   - [x] Mask out empty (padded) frames after rollout has finished. [See here.](https://www.kdnuggets.com/2018/06/taming-lstms-variable-sized-mini-batches-pytorch.html)
-  - [~] Label smoothing. Do I actually want that?
+  - [ ] Label smoothing. Do I actually want that?
 
 - Models
 
