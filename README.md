@@ -5,8 +5,8 @@ Previous notebooks and experiments can be found [here](https://github.com/ichko/
 Experiments and models for my masters thesis on learning environment dynamics from observations.
 
 - [W&B project](https://app.wandb.ai/ichko/forward_models)
-- [Google Docs of my masters](https://docs.google.com/document/d/1a7fxuHeIYLJD2ZPL9yHcXiG7PGmSVxTuiN-7uU6i41k)
-- [Google Docs of the summary of my masters](https://docs.google.com/document/d/1vaje3BEKWGcNAOkqg1pZA206oVw6ojhbJNod7F8b88k)
+- [Masters Thesis (Google Docs)](https://docs.google.com/document/d/1a7fxuHeIYLJD2ZPL9yHcXiG7PGmSVxTuiN-7uU6i41k)
+- [Summary of Masters Thesis (Masters Thesis)](https://docs.google.com/document/d/1vaje3BEKWGcNAOkqg1pZA206oVw6ojhbJNod7F8b88k)
 
 ## Structure of the project
 
