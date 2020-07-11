@@ -1,7 +1,7 @@
 import gym
 import time
 
-import keyboard
+# import keyboard
 
 
 def play_mario():

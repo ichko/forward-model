@@ -105,7 +105,7 @@ def add_virtual_display_if_non_present():
         print(f'>> ADDED VIRTUAL DISPLAY [{display}]')
 
 
-add_virtual_display_if_non_present()
+# add_virtual_display_if_non_present()
 
 
 def try_colored_traceback():

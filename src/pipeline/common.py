@@ -1,6 +1,6 @@
 import importlib
 import gym
-import sneks
+# import sneks
 
 import random
 from src.data.mp_rollout_generator import preprocessed_mp_generator
