@@ -80,13 +80,13 @@ python -m src.scripts.animate_asset_model
 
 ![Sweep of training runs](assets/sweep.PNG)
 
-**Diagram of the Asset Spatial Transforming RNN**
+**Diagram of the Asset Spatial Transformer RNN**
 
 ![Asset Spatial RNN](assets/asset_spatial_rnn.PNG)
 
 Described in the thesis.
 
-**Example reconstructed episodes**
+**Examples of reconstructed PONG episodes**
 
 ![Rollout 1](assets/rollout_1.PNG)
 ![Rollout 2](assets/rollout_2.PNG)
