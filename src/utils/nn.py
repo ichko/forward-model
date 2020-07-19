@@ -267,6 +267,11 @@ def spatial_transformer(i, num_channels):
                 (theta.size(dim=0), 1, H, W),
                 align_corners=True,
             )
+
+            # Last values
+            self.grid = grid
+            self.theta = theta
+
             tensor_3d = tensor_3d.reshape(-1, 1, H, W)
             tensor_3d = F.grid_sample(
                 tensor_3d,

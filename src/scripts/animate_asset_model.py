@@ -12,8 +12,8 @@ import os
 from src.pipeline.common import get_model
 from src.pipeline.config import get_hparams
 
-from src.data.pong import PONGAgent
-from src.utils import make_preprocessed_env, get_example_rollout
+from src.data.pong import PONGAgent, ACTION_MAP_SINGLE_TO_MULTI
+from src.utils import make_preprocessed_env, get_example_rollout, random_seed
 
 import matplotlib.pyplot as plt
 
@@ -22,12 +22,8 @@ def sigmoid(x):
     return 1 / (1 + np.exp(-x))
 
 
-fig = plt.figure(figsize=(5, 8))
-
-ax1 = plt.subplot(411)
-ax2 = plt.subplot(412)
-ax3 = plt.subplot(413)
-ax4 = plt.subplot(414)
+f = 0
+plt.ioff()
 
 
 def main():
@@ -64,11 +60,24 @@ def main():
 
     agent = PONGAgent(env, stochasticity=0.2)
 
+    global f
     i = 0
     while not done:
+        fig = plt.figure(figsize=(5, 8))
+
+        ax1 = plt.subplot(511)
+        ax2 = plt.subplot(513)
+        ax3 = plt.subplot(514)
+        ax4 = plt.subplot(515)
+        ax5 = plt.subplot(512)
+
+        f += 1
         i += 1
-        if i >= 50:
+        if i >= 150:
             break
+
+        if f >= 256:
+            raise Exception('DONE')
 
         assets = model.assets[0, -1].detach().cpu().numpy().transpose(1, 2, 0)
         merged_assets = np.concatenate(
@@ -91,10 +100,31 @@ def main():
         ax3.imshow(np.sum(transformed_assets, axis=2), cmap=cmap)
         ax4.imshow(frame[:, :, 0], cmap=cmap)
 
+        def arrow(ox, oy, dx, dy):
+            ax5.arrow(ox, oy, dx, dy, head_width=0.05, head_length=0.1, ec='k')
+
+        theta = model.theta[-3:]
+        # for i in range(3):
+        #     scale_X = theta[i, :, 0]
+        #     scale_Y = theta[i, :, 1]
+        #     translate = theta[i, :, 2]
+
+        #     ox, oy = 0.5 + i, 0.5
+        #     arrow(ox, oy, scale_X[0], scale_X[1])
+        #     arrow(ox, oy, scale_Y[0], scale_Y[1])
+        #     arrow(ox, oy, translate[0], translate[1])
+
+        # ax5.set_aspect(1 / 3)
+        # ax5.set_xlim(0, 3)
+        # ax5.set_ylim(0, 1)
+
+        ax5.imshow(theta.reshape(3, 6))
+
         ax1.set_title('Assets')
         ax2.set_title('Assets after spatial transformation')
         ax3.set_title('Assets overlayed')
         ax4.set_title('Rollout (true frame, predicted frame, difference)')
+        ax5.set_title('Transformations')
 
         ax1.set_xticks([])
         ax1.set_yticks([])
@@ -104,13 +134,30 @@ def main():
         ax3.set_yticks([])
         ax4.set_xticks([])
         ax4.set_yticks([])
+        ax5.set_xticks([])
+        ax5.set_yticks([])
 
         fig.tight_layout()
-        plt.pause(0.05)
-        plt.savefig(f'.data/rollouts/last.png')
-        plt.cla()
+        # plt.pause(0.0005)
+
+        # imagemagc to convert to gif <convert img_*.png ../movie.gif>
+        plt.savefig(f'.data/rollouts/img_{f:03}.png')
+        # plt.savefig(f'.data/rollouts/last.png')
+        # plt.cla()
+        plt.close(fig)
 
         action = agent(obs)
+
+        multi_action = ACTION_MAP_SINGLE_TO_MULTI[action]
+        multi_to_str = {0: '■', 1: '▲', -1: '▼'}
+
+        left_action = multi_to_str[multi_action[0]]
+        right_action = multi_to_str[multi_action[1]]
+
+        ax4.set_xlabel(
+            f'Actions\n{left_action} {right_action}',
+            size=20,
+        )
 
         print('ACTION', action)
 
@@ -119,5 +166,6 @@ def main():
 
 
 if __name__ == '__main__':
+    random_seed()
     while True:
         main()

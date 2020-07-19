@@ -21,7 +21,7 @@ class Model(RNNBase):
         rnn_hidden_size,
         recurrent_skip,
         precondition_type,
-        fusion_type='conv',
+        fusion_type='sum',
     ):
         super().__init__(
             action_embedding_size,
@@ -112,7 +112,10 @@ class Model(RNNBase):
 
         assets = self.assets.repeat(bs, seq_len, 1, 1, 1)
         pred_frames = self.transform_frame([rnn_out_vectors, assets])
+
         self.transformed_assets = pred_frames
+        self.theta = self.transform_frame.module[0].theta
+        self.theta = self.theta.detach().cpu().numpy()
 
         if self.type == 'sum':
             pred_frames = pred_frames.sum(dim=2, keepdim=True)

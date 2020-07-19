@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 
 
 def main():
-    hparams = get_hparams('rnn_deconvolve_pong')
+    hparams = get_hparams('rnn_spatial_transformer_pong')
 
     env = make_preprocessed_env(
         hparams.env_name,
@@ -80,10 +80,10 @@ def main():
         obs, reward, done, _info = env.step(action)
         pred_obs = model.step(action)
 
-    get_example_rollout({
-        'y': [y],
-        'y_pred': [y_pred],
-    }, id=0, show=True)
+    # get_example_rollout({
+    #     'y': [y],
+    #     'y_pred': [y_pred],
+    # }, id=0, show=True)
 
 
 if __name__ == '__main__':
