@@ -5,19 +5,27 @@ import cv2
 WIN_NAME = 'WINDOW'
 
 
-def is_pressed(key):
-    special = {
-        32: 'space',
-        81: 'left',
-        82: 'up',
-        83: 'right',
-        84: 'down',
-    }
+class IO:
+    def __enter__(self):
+        self.k = cv2.waitKey(33)
+        return self
 
-    k = cv2.waitKey(33)
-    char = special[k] if k in special else chr(k) if k > 0 else -1
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
 
-    return char == key
+    def is_pressed(self, key):
+        special = {
+            32: 'space',
+            81: 'left',
+            82: 'up',
+            83: 'right',
+            84: 'down',
+        }
+
+        k = self.k
+        char = special[k] if k in special else chr(k) if k > 0 else -1
+
+        return char == key
 
 
 class Renderer:
@@ -68,7 +76,8 @@ class Renderer:
 
     @classmethod
     def can_render(cls):
-        end = is_pressed('q')
+        with IO() as io:
+            end = io.is_pressed('q')
 
         if end:
             cv2.destroyWindow(WIN_NAME)

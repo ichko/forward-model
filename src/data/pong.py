@@ -6,7 +6,7 @@ import numpy as np
 import gym
 from gym import spaces
 
-from src.utils.renderer import Renderer, is_pressed
+from src.utils.renderer import Renderer, IO
 from src.utils import register_gym_env
 
 
@@ -254,23 +254,24 @@ class PONGAgent:
 
 class PONGUserAgent:
     def __call__(self, _obs):
-        left_action = 0
-        right_action = 0
+        with IO() as io:
+            left_action = 0
+            right_action = 0
 
-        if is_pressed('w'):
-            left_action = 1
-        if is_pressed('s'):
-            left_action = -1
+            if io.is_pressed('w'):
+                left_action = 1
+            if io.is_pressed('s'):
+                left_action = -1
 
-        if is_pressed('up'):
-            right_action = 1
-        if is_pressed('down'):
-            right_action = -1
+            if io.is_pressed('up'):
+                right_action = 1
+            if io.is_pressed('down'):
+                right_action = -1
 
-        self.multi_action = (left_action, right_action)
-        action = ACTION_MAP_MULTI_TO_SINGLE[self.multi_action]
+            self.multi_action = (left_action, right_action)
+            action = ACTION_MAP_MULTI_TO_SINGLE[self.multi_action]
 
-        return action
+            return action
 
 
 # REGISTER PONG ENVIRONMENTS

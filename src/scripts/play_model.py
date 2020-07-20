@@ -10,7 +10,7 @@ from src.pipeline.config import get_hparams
 
 from src.data.pong import PONGAgent, PONGUserAgent
 from src.utils import make_preprocessed_env, get_example_rollout
-from src.utils.renderer import Renderer, is_pressed
+from src.utils.renderer import Renderer
 
 import matplotlib.pyplot as plt
 
@@ -62,8 +62,9 @@ def main():
     while not done:
         # time.sleep(1 / 1)
         y.append(obs)
-        y_pred.append(pred_obs)
-
+    while not done:
+        # time.sleep(1 / 1)
+        y.append(obs)
         frame = np.concatenate([obs, pred_obs, abs(obs - pred_obs)], axis=2)
         frame = frame.transpose(1, 2, 0)
 
