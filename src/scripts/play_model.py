@@ -8,9 +8,9 @@ import os
 from src.pipeline.train import get_model
 from src.pipeline.config import get_hparams
 
-from src.data.pong import PONGAgent
+from src.data.pong import PONGAgent, PONGUserAgent
 from src.utils import make_preprocessed_env, get_example_rollout
-from src.utils.renderer import Renderer
+from src.utils.renderer import Renderer, is_pressed
 
 import matplotlib.pyplot as plt
 
@@ -50,7 +50,10 @@ def main():
     Renderer.init_window(900, 300)
 
     random_agent = lambda _: env.action_space.sample()
-    pong_agent = PONGAgent(env, stochasticity=0.8)
+
+    # pong_agent = PONGAgent(env, stochasticity=0.8)
+    pong_agent = PONGUserAgent()
+
     agent = pong_agent if 'TwoPlayerPong' in hparams.env_name else random_agent
 
     y = []
@@ -66,16 +69,16 @@ def main():
 
         # frame = cm.bwr(np.mean(frame, axis=2))[:, :, :3]
         Renderer.show_frame(frame)
-
-        # action = -1
-        # while action < 0:
-        #     if is_pressed('w'): action = 0
-        #     if is_pressed('d'): action = 1
-        #     if is_pressed('s'): action = 2
-        #     if is_pressed('a'): action = 3
-
         action = agent(obs)
-        print('ACTION', action)
+
+        if 'TwoPlayerPong' in hparams.env_name:
+            multi_to_str = {0: '■', 1: '▲', -1: '▼'}
+            left_action = multi_to_str[agent.multi_action[0]]
+            right_action = multi_to_str[agent.multi_action[1]]
+
+            print(f'ACTIONS: {left_action} {right_action}')
+        else:
+            print('ACTION', action)
 
         obs, reward, done, _info = env.step(action)
         pred_obs = model.step(action)

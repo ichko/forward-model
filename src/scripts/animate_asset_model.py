@@ -23,7 +23,14 @@ def sigmoid(x):
 
 
 f = 0
-plt.ioff()
+# plt.ioff()
+fig = plt.figure(figsize=(5, 8))
+
+ax1 = plt.subplot(511)
+ax2 = plt.subplot(513)
+ax3 = plt.subplot(514)
+ax4 = plt.subplot(515)
+ax5 = plt.subplot(512)
 
 
 def main():
@@ -63,14 +70,6 @@ def main():
     global f
     i = 0
     while not done:
-        fig = plt.figure(figsize=(5, 8))
-
-        ax1 = plt.subplot(511)
-        ax2 = plt.subplot(513)
-        ax3 = plt.subplot(514)
-        ax4 = plt.subplot(515)
-        ax5 = plt.subplot(512)
-
         f += 1
         i += 1
         if i >= 150:
@@ -78,6 +77,8 @@ def main():
 
         if f >= 256:
             raise Exception('DONE')
+            # ffmpeg -framerate 30 -i img_%01d.png -c:v libx264 -r 30 out.mp4
+            # convert -delay X out.mp4 -loop 0 animation.gif
 
         assets = model.assets[0, -1].detach().cpu().numpy().transpose(1, 2, 0)
         merged_assets = np.concatenate(
@@ -104,19 +105,6 @@ def main():
             ax5.arrow(ox, oy, dx, dy, head_width=0.05, head_length=0.1, ec='k')
 
         theta = model.theta[-3:]
-        # for i in range(3):
-        #     scale_X = theta[i, :, 0]
-        #     scale_Y = theta[i, :, 1]
-        #     translate = theta[i, :, 2]
-
-        #     ox, oy = 0.5 + i, 0.5
-        #     arrow(ox, oy, scale_X[0], scale_X[1])
-        #     arrow(ox, oy, scale_Y[0], scale_Y[1])
-        #     arrow(ox, oy, translate[0], translate[1])
-
-        # ax5.set_aspect(1 / 3)
-        # ax5.set_xlim(0, 3)
-        # ax5.set_ylim(0, 1)
 
         ax5.imshow(theta.reshape(3, 6))
 
@@ -137,15 +125,6 @@ def main():
         ax5.set_xticks([])
         ax5.set_yticks([])
 
-        fig.tight_layout()
-        # plt.pause(0.0005)
-
-        # imagemagc to convert to gif <convert img_*.png ../movie.gif>
-        plt.savefig(f'.data/rollouts/img_{f:03}.png')
-        # plt.savefig(f'.data/rollouts/last.png')
-        # plt.cla()
-        plt.close(fig)
-
         action = agent(obs)
 
         multi_action = ACTION_MAP_SINGLE_TO_MULTI[action]
@@ -159,6 +138,14 @@ def main():
             size=20,
         )
 
+        fig.tight_layout()
+        plt.pause(0.0005)
+
+        # imagemagc to convert to gif <convert img_*.png ../movie.gif>
+        # plt.savefig(f'.data/rollouts/img_{f:03}.png')
+        # plt.savefig(f'.data/rollouts/last.png')
+        plt.cla()
+        # plt.close(fig)
         print('ACTION', action)
 
         obs, reward, done, _info = env.step(action)
