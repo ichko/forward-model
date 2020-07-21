@@ -9,13 +9,15 @@ from src.pipeline.train import get_model
 from src.pipeline.config import get_hparams
 
 from src.data.pong import PONGAgent, PONGUserAgent
-from src.utils import make_preprocessed_env, get_example_rollout
+from src.utils import make_preprocessed_env, get_example_rollout, random_seed
 from src.utils.renderer import Renderer
 
 import matplotlib.pyplot as plt
 
 
 def main():
+    # rnn_spatial_transformer_pong
+    # rnn_deconvolve_pong
     hparams = get_hparams('rnn_spatial_transformer_pong')
 
     env = make_preprocessed_env(
@@ -62,9 +64,6 @@ def main():
     while not done:
         # time.sleep(1 / 1)
         y.append(obs)
-    while not done:
-        # time.sleep(1 / 1)
-        y.append(obs)
         frame = np.concatenate([obs, pred_obs, abs(obs - pred_obs)], axis=2)
         frame = frame.transpose(1, 2, 0)
 
@@ -91,5 +90,6 @@ def main():
 
 
 if __name__ == '__main__':
+    random_seed(5)
     while True:
         main()
