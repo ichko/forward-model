@@ -58,9 +58,7 @@ class Model(RNNBase):
         else:
             self.precondition_encoder = nn.Sequential(
                 tu.dense(i=2, o=128),
-                nn.BatchNorm1d(128),
                 tu.dense(i=128, o=rnn_hidden_size),
-                nn.BatchNorm1d(rnn_hidden_size),
             )
 
         self.num_assets = 3
@@ -84,6 +82,7 @@ class Model(RNNBase):
                 tu.spatial_transformer(
                     i=rnn_hidden_size,
                     num_channels=self.num_assets,
+                    only_translations=True,
                 ),
                 *asset_fusser,
             ))
@@ -97,13 +96,17 @@ class Model(RNNBase):
         bs = actions.size(0)
         seq_len = actions.size(1)
 
-        # if not self.initialized:
-        #     self.initialized = True
-        #     f = frames[0, 0, 0].clone()
-        #     delim = 6
-        #     self.assets.data[0, 0, 0][:, :delim] = f[:, :delim]
-        #     self.assets.data[0, 0, 1][:, -delim:] = f[:, -delim:]
-        #     self.assets.data[0, 0, 2][:, delim:-delim] = f[:, delim:-delim]
+        if not self.initialized:
+            self.initialized = True
+            self.assets.data = T.ones_like(self.assets.data) \
+                .to(self.device) * -1
+            f = frames[0, 0, 0].clone()
+            delim = 6
+            self.assets.data[0, 0, 0][:, :delim] = f[:, :delim] * 15
+            self.assets.data[0, 0, 1][:, -delim:] = f[:, -delim:] * 15
+            self.assets.data[0, 0, 2][:, delim:-delim] = \
+                f[:, delim:-delim] * 15
+            self.assets.requires_grad = False
 
         precondition_map = self.precondition_encoder(precondition)
 
