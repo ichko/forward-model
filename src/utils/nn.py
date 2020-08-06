@@ -236,7 +236,7 @@ def extract_tensors(vec, tensor_shapes):
     return tensors
 
 
-def spatial_transformer(i, num_channels):
+def spatial_transformer(i, num_channels, only_translations=False):
     class SpatialTransformer(nn.Module):
         def __init__(self):
             super().__init__()
@@ -247,20 +247,26 @@ def spatial_transformer(i, num_channels):
                 reshape(-1, 2, 3),
             )
 
+            self.device = self.locator[0].bias.device
             # Taken from the pytorch spatial transformer tutorial.
-            device = self.locator[0].bias.device
             self.locator[0].weight.data.zero_()
             self.locator[0].bias.data.copy_(
                 T.tensor(
                     [1, 0, 0, 0, 1, 0] * num_channels,
                     dtype=T.float,
-                ).to(device))
+                ).to(self.device))
 
         def forward(self, x):
             inp, tensor_3d = x
 
             theta = self.locator(inp)
             _, C, H, W, = tensor_3d.shape
+
+            if only_translations:
+                theta[:, :, :-1] = T.tensor(
+                    [[1, 0], [0, 1]],
+                    dtype=T.float,
+                ).to(self.device).unsqueeze_(0)
 
             grid = F.affine_grid(
                 theta,
