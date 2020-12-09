@@ -8,6 +8,23 @@ Experiments and models for my masters thesis on learning environment dynamics fr
 - [Masters Thesis (Google Docs)](https://docs.google.com/document/d/1a7fxuHeIYLJD2ZPL9yHcXiG7PGmSVxTuiN-7uU6i41k)
 - [Summary of Masters Thesis (Masters Thesis)](https://docs.google.com/document/d/1vaje3BEKWGcNAOkqg1pZA206oVw6ojhbJNod7F8b88k)
 
+---
+
+<div style="text-align:center">
+
+**The model in action**
+
+<img alt="Example visualization of assets" src="assets/assets_visualized.gif" />
+
+<br/>
+<br/>
+
+**Diagram of the Asset Spatial Transformer RNN**
+
+![Asset Spatial RNN](assets/asset_spatial_rnn.PNG)
+
+</div>
+
 ## Structure of the project
 
 ```txt
@@ -76,15 +93,9 @@ python -m src.scripts.animate_asset_model
 
 ![Example visualization of assets](assets/assets_visualized.PNG)
 
-**Visualization of a seep of 16 train runs**
+**Visualization of a sweep of 16 train runs**
 
 ![Sweep of training runs](assets/sweep.PNG)
-
-**Diagram of the Asset Spatial Transformer RNN**
-
-![Asset Spatial RNN](assets/asset_spatial_rnn.PNG)
-
-Described in the thesis.
 
 **Examples of reconstructed PONG episodes**
 
